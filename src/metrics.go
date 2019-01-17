@@ -1,8 +1,11 @@
-package metrics
+package main
 
 import (
+	"fmt"
+	"log"
 	"net/http"
-	"time"
+	"os"
+	// "time"
 
 	config "github.com/micro/go-config"
 
@@ -57,17 +60,24 @@ func init() {
 	}
 }
 
-func main() {
+func startMetrics() {
 	cfg := config.NewConfig()
 
 	http.HandleFunc("/health", HealthHandler)
 	http.Handle("/metrics", promhttp.Handler())
 	go http.ListenAndServe(":8080", nil)
 
-	kubeconfig := cfg.Get("kubeconfig").String("~/.kube/config")
-	kcfg, _ := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	client, _ := kubernetes.NewForConfig(kcfg)
+	kubecfg := fmt.Sprintf("%s/.kube/config", os.Getenv("HOME"))
+
+	kubeconfig := cfg.Get("kubeconfig").String(kubecfg)
+	kcfg, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	if err != nil {
+		log.Fatal(err)
+	}
+	client, err := kubernetes.NewForConfig(kcfg)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	startMetricUpdater(client, cfg)
-	time.Sleep(10 * time.Second)
 }

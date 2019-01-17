@@ -1,4 +1,4 @@
-package keeper
+package main
 
 import (
 	config "github.com/micro/go-config"

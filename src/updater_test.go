@@ -1,9 +1,9 @@
-package metrics
+package main
 
 import (
 	"testing"
 )
 
 func TestUpdater(t *testing.T) {
-	main()
+	startMetrics()
 }

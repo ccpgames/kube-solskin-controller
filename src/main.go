@@ -8,14 +8,11 @@ import (
 	"github.com/micro/go-config/source/env"
 	sflag "github.com/micro/go-config/source/flag"
 
-	"k8s.io/client-go/informers"
+	// "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
+	// "k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
-
-	appsv1 "k8s.io/api/apps/v1"
-
-	keeper "./keeper"
+	// appsv1 "k8s.io/api/apps/v1"
 )
 
 func main() {
@@ -50,31 +47,27 @@ func createKubernetesClientset() *kubernetes.Clientset {
 	return clientset
 }
 
-func startMetrics() {
+// func startKeeper() {
+// 	cfg := getConfiguration()
+// 	client := createKubernetesClientset()
 
-}
+// 	// Create our informer.
+// 	factory := informers.NewSharedInformerFactory(client, 0)
+// 	informer := factory.Apps().V1().Deployments().Informer()
+// 	stopper := make(chan struct{})
+// 	defer close(stopper)
 
-func startKeeper() {
-	cfg := getConfiguration()
-	client := createKubernetesClientset()
+// 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+// 		AddFunc: func(obj interface{}) {
+// 			deployment := obj.(*appsv1.Deployment)
+// 			keeper.OnDeploymentTrigger(cfg, client, deployment)
+// 		},
+// 		UpdateFunc: func(old interface{}, obj interface{}) {
+// 			deployment := obj.(*appsv1.Deployment)
+// 			keeper.OnDeploymentTrigger(cfg, client, deployment)
+// 		},
+// 	})
 
-	// Create our informer.
-	factory := informers.NewSharedInformerFactory(client, 0)
-	informer := factory.Apps().V1().Deployments().Informer()
-	stopper := make(chan struct{})
-	defer close(stopper)
-
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			deployment := obj.(*appsv1.Deployment)
-			keeper.OnDeploymentTrigger(cfg, client, deployment)
-		},
-		UpdateFunc: func(old interface{}, obj interface{}) {
-			deployment := obj.(*appsv1.Deployment)
-			keeper.OnDeploymentTrigger(cfg, client, deployment)
-		},
-	})
-
-	// Run the informer.
-	informer.Run(stopper)
-}
+// 	// Run the informer.
+// 	informer.Run(stopper)
+// }
