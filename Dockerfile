@@ -4,7 +4,7 @@ RUN apk add --update git
 
 RUN mkdir -p /go/src/solskin
 WORKDIR /go/src/solskin
-COPY source/*.go ./
+COPY src/ ./
 RUN go get ./...
 RUN GOOS=linux; go build -o /tmp/app .
 
