@@ -1,8 +1,10 @@
-package main
+package keeper
 
 import (
 	"fmt"
 	"testing"
+
+	config "github.com/micro/go-config"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -24,7 +26,7 @@ func TestManagementEligiblity(t *testing.T) {
 		{"kube-ingress", "aws-alb-controller", false},
 	}
 
-	cfg := getConfiguration()
+	cfg := config.NewConfig()
 
 	for _, subtest := range subtests {
 		testname := fmt.Sprintf("%s.%s", subtest.name, subtest.namespace)
@@ -60,7 +62,7 @@ func TestSuppressionDecision(t *testing.T) {
 		{"unack", true, map[string]string{}},
 	}
 
-	cfg := getConfiguration()
+	cfg := config.NewConfig()
 
 	for _, subtest := range subtests {
 		t.Run(subtest.name, func(t *testing.T) {

@@ -1,39 +1,12 @@
-package main
+package keeper
 
 import (
 	config "github.com/micro/go-config"
 	"k8s.io/api/apps/v1"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
 	"log"
 	"regexp"
 )
-
-func main() {
-	cfg := getConfiguration()
-	client := createKubernetesClientset()
-
-	// Create our informer.
-	factory := informers.NewSharedInformerFactory(client, 0)
-	informer := factory.Apps().V1().Deployments().Informer()
-	stopper := make(chan struct{})
-	defer close(stopper)
-
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			deployment := obj.(*v1.Deployment)
-			onDeploymentTrigger(cfg, client, deployment)
-		},
-		UpdateFunc: func(old interface{}, obj interface{}) {
-			deployment := obj.(*v1.Deployment)
-			onDeploymentTrigger(cfg, client, deployment)
-		},
-	})
-
-	// Run the informer.
-	informer.Run(stopper)
-}
 
 // Determines whether or not a deployment is eligible for management.
 func isEligibleForManagement(cfg config.Config, obj *v1.Deployment) bool {
