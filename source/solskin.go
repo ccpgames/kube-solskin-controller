@@ -22,12 +22,12 @@ func main() {
 
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			deployment := obj.(v1.Deployment)
-			onDeploymentTrigger(cfg, client, &deployment)
+			deployment := obj.(*v1.Deployment)
+			onDeploymentTrigger(cfg, client, deployment)
 		},
 		UpdateFunc: func(old interface{}, obj interface{}) {
-			deployment := obj.(v1.Deployment)
-			onDeploymentTrigger(cfg, client, &deployment)
+			deployment := obj.(*v1.Deployment)
+			onDeploymentTrigger(cfg, client, deployment)
 		},
 	})
 
