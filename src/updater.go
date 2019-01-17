@@ -20,11 +20,25 @@ func startMetricUpdater(client kubernetes.Interface, cfg config.Config) {
 	// Create our informer.
 	factory := informers.NewSharedInformerFactory(client, 0)
 	dplInformer := factory.Apps().V1().Deployments().Informer()
+	dmsInformer := factory.Apps().V1().DaemonSets().Informer()
 	podInformer := factory.Core().V1().Pods().Informer()
 	stopper := make(chan struct{})
 	defer close(stopper)
 
 	// TODO: remove metrics when a resource goes away
+
+	// Setup our daemonset informer.
+	dmsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			onDaemonSetUpdate(obj.(*appsv1.DaemonSet), cfg)
+		},
+		UpdateFunc: func(old interface{}, obj interface{}) {
+			onDaemonSetUpdate(obj.(*appsv1.DaemonSet), cfg)
+		},
+		DeleteFunc: func(obj interface{}) {
+			onDaemonSetDelete(obj.(*appsv1.DaemonSet), cfg)
+		},
+	})
 
 	// Setup our deployment informer.
 	dplInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -54,6 +68,69 @@ func startMetricUpdater(client kubernetes.Interface, cfg config.Config) {
 
 	go dplInformer.Run(stopper)
 	podInformer.Run(stopper)
+}
+
+func onDaemonSetDelete(daemonset *appsv1.DaemonSet, cfg config.Config) {
+	// Get the ignore namespace regexp pattern from the configuration.
+	pattern := cfg.Get("ignore_namespace_pattern").String("^kube-")
+
+	// Check metadata to see if we can ignore it.
+	m, err := regexp.MatchString(pattern, daemonset.GetNamespace())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// If we matched the ignore namespace pattern, simply return.
+	if m {
+		return
+	}
+
+	labels := map[string]string{
+		"name":          daemonset.GetName(),
+		"namespace":     daemonset.GetNamespace(),
+		"resource_type": "daemonset",
+	}
+	for _, metric := range metrics {
+		metric.Delete(labels)
+	}
+}
+
+// Called whenever a deployment is added or updated in/to the cluster.
+func onDaemonSetUpdate(daemonset *appsv1.DaemonSet, cfg config.Config) {
+	// Get the ignore namespace regexp pattern from the configuration.
+	pattern := cfg.Get("ignore_namespace_pattern").String("^kube-")
+
+	// Check metadata to see if we can ignore it.
+	m, err := regexp.MatchString(pattern, daemonset.GetNamespace())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// If we matched the ignore namespace pattern, simply return.
+	if m {
+		return
+	}
+
+	// Update observability metrics.
+	forDaemonSetObservability(daemonset)
+}
+
+func forDaemonSetObservability(daemonset *appsv1.DaemonSet) {
+	labels := map[string]string{
+		"name":          daemonset.GetName(),
+		"namespace":     daemonset.GetNamespace(),
+		"resource_type": "daemonset",
+	}
+
+	// Create or retrieve our metric.
+	gauge, err := metrics["solskin_observability_resources"].GetMetricWith(labels)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Set our metric.
+	meta := daemonset.Spec.Template.ObjectMeta
+	gauge.Set(boolToFloat64(hasAnnotation(meta, "prometheus.io/scrape")))
 }
 
 func onDeploymentDelete(deployment *appsv1.Deployment, cfg config.Config) {
