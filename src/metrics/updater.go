@@ -29,20 +29,26 @@ func startMetricUpdater(client kubernetes.Interface, cfg config.Config) {
 	// Setup our deployment informer.
 	dplInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			forDeployment(obj.(*appsv1.Deployment), cfg)
+			onDeploymentUpdate(obj.(*appsv1.Deployment), cfg)
 		},
 		UpdateFunc: func(old interface{}, obj interface{}) {
-			forDeployment(obj.(*appsv1.Deployment), cfg)
+			onDeploymentUpdate(obj.(*appsv1.Deployment), cfg)
+		},
+		DeleteFunc: func(obj interface{}) {
+			onDeploymentDelete(obj.(*appsv1.Deployment), cfg)
 		},
 	})
 
 	// Setup our pod informer.
 	podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			forPod(obj.(*corev1.Pod), cfg)
+			onPodUpdate(obj.(*corev1.Pod), cfg)
 		},
 		UpdateFunc: func(old interface{}, obj interface{}) {
-			forPod(obj.(*corev1.Pod), cfg)
+			onPodUpdate(obj.(*corev1.Pod), cfg)
+		},
+		DeleteFunc: func(obj interface{}) {
+			onPodDelete(obj.(*corev1.Pod), cfg)
 		},
 	})
 
@@ -50,8 +56,33 @@ func startMetricUpdater(client kubernetes.Interface, cfg config.Config) {
 	podInformer.Run(stopper)
 }
 
+func onDeploymentDelete(deployment *appsv1.Deployment, cfg config.Config) {
+	// Get the ignore namespace regexp pattern from the configuration.
+	pattern := cfg.Get("ignore_namespace_pattern").String("^kube-")
+
+	// Check metadata to see if we can ignore it.
+	m, err := regexp.MatchString(pattern, deployment.GetNamespace())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// If we matched the ignore namespace pattern, simply return.
+	if m {
+		return
+	}
+
+	labels := map[string]string{
+		"name":          deployment.GetName(),
+		"namespace":     deployment.GetNamespace(),
+		"resource_type": "deployment",
+	}
+	for _, metric := range metrics {
+		metric.Delete(labels)
+	}
+}
+
 // Called whenever a deployment is added or updated in/to the cluster.
-func forDeployment(deployment *appsv1.Deployment, cfg config.Config) {
+func onDeploymentUpdate(deployment *appsv1.Deployment, cfg config.Config) {
 	// Get the ignore namespace regexp pattern from the configuration.
 	pattern := cfg.Get("ignore_namespace_pattern").String("^kube-")
 
@@ -71,7 +102,6 @@ func forDeployment(deployment *appsv1.Deployment, cfg config.Config) {
 }
 
 func forDeploymentObservability(deployment *appsv1.Deployment) {
-	log.Printf("hello world, dpl obs")
 	labels := map[string]string{
 		"name":          deployment.GetName(),
 		"namespace":     deployment.GetNamespace(),
@@ -89,8 +119,33 @@ func forDeploymentObservability(deployment *appsv1.Deployment) {
 	gauge.Set(boolToFloat64(hasAnnotation(meta, "prometheus.io/scrape")))
 }
 
+func onPodDelete(pod *corev1.Pod, cfg config.Config) {
+	// Get the ignore namespace regexp pattern from the configuration.
+	pattern := cfg.Get("ignore_namespace_pattern").String("^kube-")
+
+	// Check metadata to see if we can ignore it.
+	m, err := regexp.MatchString(pattern, pod.GetNamespace())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// If we matched the ignore namespace pattern, simply return.
+	if m {
+		return
+	}
+
+	labels := map[string]string{
+		"name":          pod.GetName(),
+		"namespace":     pod.GetNamespace(),
+		"resource_type": "pod",
+	}
+	for _, metric := range metrics {
+		metric.Delete(labels)
+	}
+}
+
 // Called whenever a pod is added or updated in/to the cluster.
-func forPod(pod *corev1.Pod, cfg config.Config) {
+func onPodUpdate(pod *corev1.Pod, cfg config.Config) {
 	// Get the ignore namespace regexp pattern from the configuration.
 	pattern := cfg.Get("ignore_namespace_pattern").String("^kube-")
 
@@ -110,7 +165,6 @@ func forPod(pod *corev1.Pod, cfg config.Config) {
 }
 
 func forPodObservability(pod *corev1.Pod) {
-	log.Printf("hello world, pod obs")
 	labels := map[string]string{
 		"name":          pod.GetName(),
 		"namespace":     pod.GetNamespace(),

@@ -2,7 +2,6 @@ package metrics
 
 import (
 	"net/http"
-	"os"
 	"time"
 
 	config "github.com/micro/go-config"
@@ -15,27 +14,33 @@ import (
 )
 
 // TODO: metrics to test
-//  - liveness (pods and deployments)
-//  - readiness (pods and deployments)
-//  - observability (pods and deployments)
-//  - limits (pods and deployments)
+//  - liveness (pods, deployments, daemonsets)
+//  - readiness (pods, deployments, daemonsets)
+//  - observability (pods, deployments, daemonsets)
+//  - limits (pods, deployments, daemonsets)
 
 var metrics = map[string]*prometheus.GaugeVec{
-	// Solskin metric for the observability of pods and deployments.
+	// Solskin metric for the observability of kubernetes resources.
 	"solskin_observability_resources": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "solskin_observable_resources",
 		Help: "...",
 	}, []string{"name", "namespace", "resource_type"}),
 
-	// Solskin metric for the liveness of pods and deployments.
+	// Solskin metric for the liveness of kubernetes resources.
 	"solskin_liveness_resources": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "solskin_liveness_resources",
 		Help: "...",
 	}, []string{"name", "namespace", "resource_type"}),
 
-	// Solskin metric for the readiness of pods and deployments.
+	// Solskin metric for the readiness of kubernetes resources.
 	"solskin_readiness_resources": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "solskin_readiness_resources",
+		Help: "...",
+	}, []string{"name", "namespace", "resource_type"}),
+
+	// Solskin metric for the limits of kubernetes resources.
+	"solskin_limits_resources": prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "solskin_limits_resources",
 		Help: "...",
 	}, []string{"name", "namespace", "resource_type"}),
 }
@@ -59,7 +64,8 @@ func main() {
 	http.Handle("/metrics", promhttp.Handler())
 	go http.ListenAndServe(":8080", nil)
 
-	kcfg, _ := clientcmd.BuildConfigFromFlags("", os.Getenv("KUBECONFIG"))
+	kubeconfig := cfg.Get("kubeconfig").String("~/.kube/config")
+	kcfg, _ := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	client, _ := kubernetes.NewForConfig(kcfg)
 
 	startMetricUpdater(client, cfg)
