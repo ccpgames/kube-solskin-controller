@@ -12,7 +12,15 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+
+	appsv1 "k8s.io/api/apps/v1"
+
+	keeper "./keeper"
 )
+
+func main() {
+	startMetrics()
+}
 
 func getConfiguration() config.Config {
 	cfg := config.NewConfig()
@@ -42,7 +50,11 @@ func createKubernetesClientset() *kubernetes.Clientset {
 	return clientset
 }
 
-func main() {
+func startMetrics() {
+
+}
+
+func startKeeper() {
 	cfg := getConfiguration()
 	client := createKubernetesClientset()
 
@@ -54,12 +66,12 @@ func main() {
 
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			deployment := obj.(*v1.Deployment)
-			onDeploymentTrigger(cfg, client, deployment)
+			deployment := obj.(*appsv1.Deployment)
+			keeper.OnDeploymentTrigger(cfg, client, deployment)
 		},
 		UpdateFunc: func(old interface{}, obj interface{}) {
-			deployment := obj.(*v1.Deployment)
-			onDeploymentTrigger(cfg, client, deployment)
+			deployment := obj.(*appsv1.Deployment)
+			keeper.OnDeploymentTrigger(cfg, client, deployment)
 		},
 	})
 

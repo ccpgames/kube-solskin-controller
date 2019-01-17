@@ -59,7 +59,8 @@ func performSuppression(client kubernetes.Interface, obj *v1.Deployment) {
 	client.Apps().Deployments(obj.GetNamespace()).Update(obj)
 }
 
-func onDeploymentTrigger(cfg config.Config, client kubernetes.Interface, obj *v1.Deployment) {
+// OnDeploymentTrigger ...
+func OnDeploymentTrigger(cfg config.Config, client kubernetes.Interface, obj *v1.Deployment) {
 	eligible := isEligibleForManagement(cfg, obj)
 	if !eligible {
 		return
