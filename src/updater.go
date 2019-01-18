@@ -162,7 +162,7 @@ func forDaemonSetLiveness(daemonset *appsv1.DaemonSet) {
 		log.Fatal(err)
 	}
 
-	gauge.Set(0.0)
+	gauge.Set(float64(countLiveness(daemonset.Spec.Template.Spec)))
 }
 
 func forDaemonSetReadiness(daemonset *appsv1.DaemonSet) {
@@ -178,7 +178,7 @@ func forDaemonSetReadiness(daemonset *appsv1.DaemonSet) {
 		log.Fatal(err)
 	}
 
-	gauge.Set(0.0)
+	gauge.Set(float64(countReadiness(daemonset.Spec.Template.Spec)))
 }
 
 func forDaemonSetLimits(daemonset *appsv1.DaemonSet) {
@@ -276,7 +276,7 @@ func forDeploymentLiveness(deployment *appsv1.Deployment) {
 		log.Fatal(err)
 	}
 
-	gauge.Set(0.0)
+	gauge.Set(float64(countLiveness(deployment.Spec.Template.Spec)))
 }
 
 func forDeploymentReadiness(deployment *appsv1.Deployment) {
@@ -292,7 +292,7 @@ func forDeploymentReadiness(deployment *appsv1.Deployment) {
 		log.Fatal(err)
 	}
 
-	gauge.Set(0.0)
+	gauge.Set(float64(countReadiness(deployment.Spec.Template.Spec)))
 }
 
 func forDeploymentLimits(deployment *appsv1.Deployment) {
@@ -390,7 +390,7 @@ func forPodLiveness(pod *corev1.Pod) {
 		log.Fatal(err)
 	}
 
-	gauge.Set(0.0)
+	gauge.Set(float64(countLiveness(pod.Spec)))
 }
 
 func forPodReadiness(pod *corev1.Pod) {
@@ -406,7 +406,7 @@ func forPodReadiness(pod *corev1.Pod) {
 		log.Fatal(err)
 	}
 
-	gauge.Set(0.0)
+	gauge.Set(float64(countReadiness(pod.Spec)))
 }
 
 func forPodLimits(pod *corev1.Pod) {
@@ -423,6 +423,26 @@ func forPodLimits(pod *corev1.Pod) {
 	}
 
 	gauge.Set(float64(countLimits(pod.Spec)))
+}
+
+func countLiveness(spec corev1.PodSpec) uint8 {
+	count := uint8(0)
+	for _, container := range spec.Containers {
+		if container.LivenessProbe != nil {
+			count += uint8(1)
+		}
+	}
+	return count
+}
+
+func countReadiness(spec corev1.PodSpec) uint8 {
+	count := uint8(0)
+	for _, container := range spec.Containers {
+		if container.ReadinessProbe != nil {
+			count += uint8(1)
+		}
+	}
+	return count
 }
 
 func countLimits(spec corev1.PodSpec) uint8 {
