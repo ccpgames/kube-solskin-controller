@@ -194,7 +194,7 @@ func forDaemonSetLimits(daemonset *appsv1.DaemonSet) {
 		log.Fatal(err)
 	}
 
-	gauge.Set(0.0)
+	gauge.Set(float64(countLimits(daemonset.Spec.Template.Spec)))
 }
 
 func onDeploymentDelete(deployment *appsv1.Deployment, cfg config.Config) {
@@ -308,7 +308,7 @@ func forDeploymentLimits(deployment *appsv1.Deployment) {
 		log.Fatal(err)
 	}
 
-	gauge.Set(0.0)
+	gauge.Set(float64(countLimits(deployment.Spec.Template.Spec)))
 }
 
 func onPodDelete(pod *corev1.Pod, cfg config.Config) {
@@ -422,7 +422,15 @@ func forPodLimits(pod *corev1.Pod) {
 		log.Fatal(err)
 	}
 
-	gauge.Set(0.0)
+	gauge.Set(float64(countLimits(pod.Spec)))
+}
+
+func countLimits(spec corev1.PodSpec) uint8 {
+	count := uint8(0)
+	for _, container := range spec.Containers {
+		count += uint8(len(container.Resources.Limits))
+	}
+	return count
 }
 
 func hasAnnotation(meta metav1.ObjectMeta, annotation string) bool {
