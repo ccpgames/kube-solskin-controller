@@ -81,7 +81,6 @@ func startMetricUpdater(client kubernetes.Interface, cfg config.Config) {
 			time.Sleep(10 * time.Millisecond)
 		}
 	}
-
 }
 
 func onDaemonSetDelete(daemonset *appsv1.DaemonSet, cfg config.Config) {
@@ -127,6 +126,8 @@ func onDaemonSetUpdate(daemonset *appsv1.DaemonSet, cfg config.Config) {
 
 	// Update observability metrics.
 	forDaemonSetObservability(daemonset)
+	forDaemonSetLiveness(daemonset)
+	forDaemonSetReadiness(daemonset)
 }
 
 func forDaemonSetObservability(daemonset *appsv1.DaemonSet) {
@@ -145,6 +146,38 @@ func forDaemonSetObservability(daemonset *appsv1.DaemonSet) {
 	// Set our metric.
 	meta := daemonset.Spec.Template.ObjectMeta
 	gauge.Set(boolToFloat64(hasAnnotation(meta, "prometheus.io/scrape")))
+}
+
+func forDaemonSetLiveness(daemonset *appsv1.DaemonSet) {
+	labels := map[string]string{
+		"name":          daemonset.GetName(),
+		"namespace":     daemonset.GetNamespace(),
+		"resource_type": "daemonset",
+	}
+
+	// Create or retrieve our metric.
+	gauge, err := metrics["solskin_liveness_resources"].GetMetricWith(labels)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	gauge.Set(0.0)
+}
+
+func forDaemonSetReadiness(daemonset *appsv1.DaemonSet) {
+	labels := map[string]string{
+		"name":          daemonset.GetName(),
+		"namespace":     daemonset.GetNamespace(),
+		"resource_type": "daemonset",
+	}
+
+	// Create or retrieve our metric.
+	gauge, err := metrics["solskin_readiness_resources"].GetMetricWith(labels)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	gauge.Set(0.0)
 }
 
 func onDeploymentDelete(deployment *appsv1.Deployment, cfg config.Config) {
@@ -190,6 +223,8 @@ func onDeploymentUpdate(deployment *appsv1.Deployment, cfg config.Config) {
 
 	// Update observability metrics.
 	forDeploymentObservability(deployment)
+	forDeploymentLiveness(deployment)
+	forDeploymentReadiness(deployment)
 }
 
 func forDeploymentObservability(deployment *appsv1.Deployment) {
@@ -208,6 +243,38 @@ func forDeploymentObservability(deployment *appsv1.Deployment) {
 	// Set our metric.
 	meta := deployment.Spec.Template.ObjectMeta
 	gauge.Set(boolToFloat64(hasAnnotation(meta, "prometheus.io/scrape")))
+}
+
+func forDeploymentLiveness(deployment *appsv1.Deployment) {
+	labels := map[string]string{
+		"name":          deployment.GetName(),
+		"namespace":     deployment.GetNamespace(),
+		"resource_type": "deployment",
+	}
+
+	// Create or retrieve our metric.
+	gauge, err := metrics["solskin_liveness_resources"].GetMetricWith(labels)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	gauge.Set(0.0)
+}
+
+func forDeploymentReadiness(deployment *appsv1.Deployment) {
+	labels := map[string]string{
+		"name":          deployment.GetName(),
+		"namespace":     deployment.GetNamespace(),
+		"resource_type": "deployment",
+	}
+
+	// Create or retrieve our metric.
+	gauge, err := metrics["solskin_readiness_resources"].GetMetricWith(labels)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	gauge.Set(0.0)
 }
 
 func onPodDelete(pod *corev1.Pod, cfg config.Config) {
@@ -253,6 +320,8 @@ func onPodUpdate(pod *corev1.Pod, cfg config.Config) {
 
 	// Update observability metrics.
 	forPodObservability(pod)
+	forPodLiveness(pod)
+	forPodReadiness(pod)
 }
 
 func forPodObservability(pod *corev1.Pod) {
@@ -271,6 +340,38 @@ func forPodObservability(pod *corev1.Pod) {
 	// Set our metric.
 	meta := pod.ObjectMeta
 	gauge.Set(boolToFloat64(hasAnnotation(meta, "prometheus.io/scrape")))
+}
+
+func forPodLiveness(pod *corev1.Pod) {
+	labels := map[string]string{
+		"name":          pod.GetName(),
+		"namespace":     pod.GetNamespace(),
+		"resource_type": "pod",
+	}
+
+	// Create or retrieve our metric.
+	gauge, err := metrics["solskin_liveness_resources"].GetMetricWith(labels)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	gauge.Set(0.0)
+}
+
+func forPodReadiness(pod *corev1.Pod) {
+	labels := map[string]string{
+		"name":          pod.GetName(),
+		"namespace":     pod.GetNamespace(),
+		"resource_type": "pod",
+	}
+
+	// Create or retrieve our metric.
+	gauge, err := metrics["solskin_readiness_resources"].GetMetricWith(labels)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	gauge.Set(0.0)
 }
 
 func hasAnnotation(meta metav1.ObjectMeta, annotation string) bool {
