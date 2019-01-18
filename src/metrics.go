@@ -16,12 +16,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// TODO: metrics to test
-//  - liveness (pods, deployments, daemonsets)
-//  - readiness (pods, deployments, daemonsets)
-//  - observability (pods, deployments, daemonsets)
-//  - limits (pods, deployments, daemonsets)
-
 var metrics = map[string]*prometheus.GaugeVec{
 	// Solskin metric for the observability of kubernetes resources.
 	"solskin_observability_resources": prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -62,11 +56,6 @@ func init() {
 
 func startMetrics() {
 	cfg := config.NewConfig()
-
-	http.HandleFunc("/health", HealthHandler)
-	http.Handle("/metrics", promhttp.Handler())
-	go http.ListenAndServe(":8080", nil)
-
 	kubecfg := fmt.Sprintf("%s/.kube/config", os.Getenv("HOME"))
 
 	kubeconfig := cfg.Get("kubeconfig").String(kubecfg)
@@ -78,6 +67,10 @@ func startMetrics() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	http.HandleFunc("/health", HealthHandler)
+	http.Handle("/metrics", promhttp.Handler())
+	go http.ListenAndServe(":8080", nil)
 
 	startMetricUpdater(client, cfg)
 }

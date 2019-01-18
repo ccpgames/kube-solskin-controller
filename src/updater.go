@@ -19,7 +19,7 @@ import (
 
 func startMetricUpdater(client kubernetes.Interface, cfg config.Config) {
 	// Create our informer.
-	factory := informers.NewSharedInformerFactory(client, 0)
+	factory := informers.NewSharedInformerFactory(client, time.Second)
 	dplInformer := factory.Apps().V1().Deployments().Informer()
 	dmsInformer := factory.Apps().V1().DaemonSets().Informer()
 	podInformer := factory.Core().V1().Pods().Informer()
@@ -198,6 +198,8 @@ func forDaemonSetLimits(daemonset *appsv1.DaemonSet) {
 }
 
 func onDeploymentDelete(deployment *appsv1.Deployment, cfg config.Config) {
+	log.Printf("deleted deployment [%s.%s]", deployment.GetName(), deployment.GetNamespace())
+
 	// Get the ignore namespace regexp pattern from the configuration.
 	pattern := cfg.Get("ignore_namespace_pattern").String("^kube-")
 
@@ -224,6 +226,8 @@ func onDeploymentDelete(deployment *appsv1.Deployment, cfg config.Config) {
 
 // Called whenever a deployment is added or updated in/to the cluster.
 func onDeploymentUpdate(deployment *appsv1.Deployment, cfg config.Config) {
+	log.Printf("update to deployment [%s.%s]", deployment.GetName(), deployment.GetNamespace())
+
 	// Get the ignore namespace regexp pattern from the configuration.
 	pattern := cfg.Get("ignore_namespace_pattern").String("^kube-")
 
