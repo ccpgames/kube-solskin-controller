@@ -26,25 +26,25 @@ var metrics = map[string]*prometheus.GaugeVec{
 	// Solskin metric for the observability of kubernetes resources.
 	"solskin_observability_resources": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "solskin_observability_resources",
-		Help: "...",
+		Help: "A boolean value for the proof of observability.",
 	}, []string{"name", "namespace", "resource_type"}),
 
 	// Solskin metric for the liveness of kubernetes resources.
 	"solskin_liveness_resources": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "solskin_liveness_resources",
-		Help: "...",
+		Help: "A boolean value for the proof of liveness.",
 	}, []string{"name", "namespace", "resource_type"}),
 
 	// Solskin metric for the readiness of kubernetes resources.
 	"solskin_readiness_resources": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "solskin_readiness_resources",
-		Help: "...",
+		Help: "A boolean value for the proof of readiness.",
 	}, []string{"name", "namespace", "resource_type"}),
 
 	// Solskin metric for the limits of kubernetes resources.
 	"solskin_limits_resources": prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "solskin_limits_resources",
-		Help: "...",
+		Help: "A boolean value for the proof of limits.",
 	}, []string{"name", "namespace", "resource_type"}),
 }
 
