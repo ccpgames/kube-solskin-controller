@@ -104,7 +104,56 @@ func TestMetricObservability(t *testing.T) {
 			},
 		},
 	}
-	daemonsets := []*appsv1.DaemonSet{}
+	daemonsets := []*appsv1.DaemonSet{
+		&appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "without-obs",
+				Namespace: "default",
+			},
+			Spec: appsv1.DaemonSetSpec{
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "without-obs",
+						Namespace: "default",
+					},
+				},
+			},
+		},
+		&appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-false-obs",
+				Namespace: "default",
+			},
+			Spec: appsv1.DaemonSetSpec{
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "with-false-obs",
+						Namespace: "default",
+						Annotations: map[string]string{
+							"prometheus.io/scrape": "false",
+						},
+					},
+				},
+			},
+		},
+		&appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-true-obs",
+				Namespace: "default",
+			},
+			Spec: appsv1.DaemonSetSpec{
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "with-true-obs",
+						Namespace: "default",
+						Annotations: map[string]string{
+							"prometheus.io/scrape": "true",
+						},
+					},
+				},
+			},
+		},
+	}
 
 	// Setup resources in the cluster.
 	setupKubernetesTestResources(t, client, pods, deployments, daemonsets)
@@ -147,6 +196,21 @@ func TestMetricObservability(t *testing.T) {
 			"name":          deployments[2].GetName(),
 			"namespace":     deployments[2].GetNamespace(),
 			"resource_type": "deployment",
+		}},
+		{0.0, "solskin_observability_resources", map[string]string{
+			"name":          daemonsets[0].GetName(),
+			"namespace":     daemonsets[0].GetNamespace(),
+			"resource_type": "daemonset",
+		}},
+		{1.0, "solskin_observability_resources", map[string]string{
+			"name":          daemonsets[1].GetName(),
+			"namespace":     daemonsets[1].GetNamespace(),
+			"resource_type": "daemonset",
+		}},
+		{1.0, "solskin_observability_resources", map[string]string{
+			"name":          daemonsets[2].GetName(),
+			"namespace":     daemonsets[2].GetNamespace(),
+			"resource_type": "daemonset",
 		}},
 	}
 
