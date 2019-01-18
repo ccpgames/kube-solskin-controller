@@ -14,14 +14,475 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
+type MetricsTest struct {
+	Expected float64
+	Name     string
+	Labels   map[string]string
+}
+
 // TestMetricLiveness tests that the metric service correctly reports liveness
 // values for kubernetes resources.
 func TestMetricLiveness(t *testing.T) {
-	t.Error("not yet implemented")
+	// Create a fake default configuration.
+	cfg := config.NewConfig()
+
+	// Create the fake client.
+	client := fake.NewSimpleClientset()
+
+	// Define our kubernetes resources.
+	pods := []*corev1.Pod{
+		&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "without-liveness",
+				Namespace: "default",
+			},
+		},
+		&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-exec-liveness",
+				Namespace: "default",
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					corev1.Container{
+						LivenessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								Exec: &corev1.ExecAction{
+									Command: []string{"uname"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-http-liveness",
+				Namespace: "default",
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					corev1.Container{
+						LivenessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								HTTPGet: &corev1.HTTPGetAction{
+									Port: intstr.FromInt(80),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-tcp-liveness",
+				Namespace: "default",
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					corev1.Container{
+						LivenessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								TCPSocket: &corev1.TCPSocketAction{
+									Port: intstr.FromInt(80),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	deployments := []*appsv1.Deployment{
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "without-liveness",
+				Namespace: "default",
+			},
+		},
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-exec-liveness",
+				Namespace: "default",
+			},
+			Spec: appsv1.DeploymentSpec{
+				Template: corev1.PodTemplateSpec{
+					Spec: pods[1].Spec,
+				},
+			},
+		},
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-http-liveness",
+				Namespace: "default",
+			},
+			Spec: appsv1.DeploymentSpec{
+				Template: corev1.PodTemplateSpec{
+					Spec: pods[2].Spec,
+				},
+			},
+		},
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-tcp-liveness",
+				Namespace: "default",
+			},
+			Spec: appsv1.DeploymentSpec{
+				Template: corev1.PodTemplateSpec{
+					Spec: pods[3].Spec,
+				},
+			},
+		},
+	}
+	daemonsets := []*appsv1.DaemonSet{
+		&appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "without-liveness",
+				Namespace: "default",
+			},
+		},
+		&appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-exec-liveness",
+				Namespace: "default",
+			},
+			Spec: appsv1.DaemonSetSpec{
+				Template: corev1.PodTemplateSpec{
+					Spec: pods[1].Spec,
+				},
+			},
+		},
+		&appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-http-liveness",
+				Namespace: "default",
+			},
+			Spec: appsv1.DaemonSetSpec{
+				Template: corev1.PodTemplateSpec{
+					Spec: pods[2].Spec,
+				},
+			},
+		},
+		&appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-tcp-liveness",
+				Namespace: "default",
+			},
+			Spec: appsv1.DaemonSetSpec{
+				Template: corev1.PodTemplateSpec{
+					Spec: pods[3].Spec,
+				},
+			},
+		},
+	}
+
+	// Setup resources in the cluster.
+	setupKubernetesTestResources(t, client, pods, deployments, daemonsets)
+
+	// Start the metric updater.
+	startMetricUpdater(client, cfg)
+
+	subtests := make([]MetricsTest, 0)
+	for idx, pod := range pods {
+		// Determine expected value (first one is false / 0.0).
+		e := 0.0
+		if idx > 0 {
+			e = 1.0
+		}
+
+		// Create the test entry.
+		test := MetricsTest{
+			Expected: e,
+			Name:     "solskin_liveness_resources",
+			Labels: map[string]string{
+				"name":          pod.GetName(),
+				"namespace":     pod.GetNamespace(),
+				"resource_type": "pod",
+			},
+		}
+		subtests = append(subtests, test)
+	}
+
+	for idx, deployment := range deployments {
+		// Determine expected value (first one is false / 0.0).
+		e := 0.0
+		if idx > 0 {
+			e = 1.0
+		}
+
+		// Create the test entry.
+		test := MetricsTest{
+			Expected: e,
+			Name:     "solskin_liveness_resources",
+			Labels: map[string]string{
+				"name":          deployment.GetName(),
+				"namespace":     deployment.GetNamespace(),
+				"resource_type": "deployment",
+			},
+		}
+		subtests = append(subtests, test)
+	}
+
+	for idx, daemonset := range daemonsets {
+		// Determine expected value (first one is false / 0.0).
+		e := 0.0
+		if idx > 0 {
+			e = 1.0
+		}
+
+		// Create the test entry.
+		test := MetricsTest{
+			Expected: e,
+			Name:     "solskin_liveness_resources",
+			Labels: map[string]string{
+				"name":          daemonset.GetName(),
+				"namespace":     daemonset.GetNamespace(),
+				"resource_type": "daemonset",
+			},
+		}
+		subtests = append(subtests, test)
+	}
+
+	for _, subtest := range subtests {
+		checkMetrics(t, subtest)
+	}
+}
+
+// TestMetricReadiness tests that the metric service correctly reports readiness
+// values for kubernetes resources.
+func TestMetricReadiness(t *testing.T) {
+	// Create a fake default configuration.
+	cfg := config.NewConfig()
+
+	// Create the fake client.
+	client := fake.NewSimpleClientset()
+
+	// Define our kubernetes resources.
+	pods := []*corev1.Pod{
+		&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "without-readiness",
+				Namespace: "default",
+			},
+		},
+		&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-exec-readiness",
+				Namespace: "default",
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					corev1.Container{
+						ReadinessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								Exec: &corev1.ExecAction{
+									Command: []string{"uname"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-http-readiness",
+				Namespace: "default",
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					corev1.Container{
+						ReadinessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								HTTPGet: &corev1.HTTPGetAction{
+									Port: intstr.FromInt(80),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-tcp-readiness",
+				Namespace: "default",
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					corev1.Container{
+						ReadinessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								TCPSocket: &corev1.TCPSocketAction{
+									Port: intstr.FromInt(80),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	deployments := []*appsv1.Deployment{
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "without-readiness",
+				Namespace: "default",
+			},
+		},
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-exec-readiness",
+				Namespace: "default",
+			},
+			Spec: appsv1.DeploymentSpec{
+				Template: corev1.PodTemplateSpec{
+					Spec: pods[1].Spec,
+				},
+			},
+		},
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-http-readiness",
+				Namespace: "default",
+			},
+			Spec: appsv1.DeploymentSpec{
+				Template: corev1.PodTemplateSpec{
+					Spec: pods[2].Spec,
+				},
+			},
+		},
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-tcp-readiness",
+				Namespace: "default",
+			},
+			Spec: appsv1.DeploymentSpec{
+				Template: corev1.PodTemplateSpec{
+					Spec: pods[3].Spec,
+				},
+			},
+		},
+	}
+	daemonsets := []*appsv1.DaemonSet{
+		&appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "without-readiness",
+				Namespace: "default",
+			},
+		},
+		&appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-exec-readiness",
+				Namespace: "default",
+			},
+			Spec: appsv1.DaemonSetSpec{
+				Template: corev1.PodTemplateSpec{
+					Spec: pods[1].Spec,
+				},
+			},
+		},
+		&appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-http-readiness",
+				Namespace: "default",
+			},
+			Spec: appsv1.DaemonSetSpec{
+				Template: corev1.PodTemplateSpec{
+					Spec: pods[2].Spec,
+				},
+			},
+		},
+		&appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-tcp-readiness",
+				Namespace: "default",
+			},
+			Spec: appsv1.DaemonSetSpec{
+				Template: corev1.PodTemplateSpec{
+					Spec: pods[3].Spec,
+				},
+			},
+		},
+	}
+
+	// Setup resources in the cluster.
+	setupKubernetesTestResources(t, client, pods, deployments, daemonsets)
+
+	// Start the metric updater.
+	startMetricUpdater(client, cfg)
+
+	subtests := make([]MetricsTest, 0)
+	for idx, pod := range pods {
+		// Determine expected value (first one is false / 0.0).
+		e := 0.0
+		if idx > 0 {
+			e = 1.0
+		}
+
+		// Create the test entry.
+		test := MetricsTest{
+			Expected: e,
+			Name:     "solskin_readiness_resources",
+			Labels: map[string]string{
+				"name":          pod.GetName(),
+				"namespace":     pod.GetNamespace(),
+				"resource_type": "pod",
+			},
+		}
+		subtests = append(subtests, test)
+	}
+
+	for idx, deployment := range deployments {
+		// Determine expected value (first one is false / 0.0).
+		e := 0.0
+		if idx > 0 {
+			e = 1.0
+		}
+
+		// Create the test entry.
+		test := MetricsTest{
+			Expected: e,
+			Name:     "solskin_readiness_resources",
+			Labels: map[string]string{
+				"name":          deployment.GetName(),
+				"namespace":     deployment.GetNamespace(),
+				"resource_type": "deployment",
+			},
+		}
+		subtests = append(subtests, test)
+	}
+
+	for idx, daemonset := range daemonsets {
+		// Determine expected value (first one is false / 0.0).
+		e := 0.0
+		if idx > 0 {
+			e = 1.0
+		}
+
+		// Create the test entry.
+		test := MetricsTest{
+			Expected: e,
+			Name:     "solskin_readiness_resources",
+			Labels: map[string]string{
+				"name":          daemonset.GetName(),
+				"namespace":     daemonset.GetNamespace(),
+				"resource_type": "daemonset",
+			},
+		}
+		subtests = append(subtests, test)
+	}
+
+	for _, subtest := range subtests {
+		checkMetrics(t, subtest)
+	}
 }
 
 // TestMetricObservability tests that the metric service correctly reports
@@ -66,6 +527,7 @@ func TestMetricObservability(t *testing.T) {
 						Name:      "without-obs",
 						Namespace: "default",
 					},
+					Spec: pods[0].Spec,
 				},
 			},
 		},
@@ -83,6 +545,7 @@ func TestMetricObservability(t *testing.T) {
 							"prometheus.io/scrape": "false",
 						},
 					},
+					Spec: pods[1].Spec,
 				},
 			},
 		},
@@ -100,6 +563,7 @@ func TestMetricObservability(t *testing.T) {
 							"prometheus.io/scrape": "true",
 						},
 					},
+					Spec: pods[2].Spec,
 				},
 			},
 		},
@@ -116,6 +580,7 @@ func TestMetricObservability(t *testing.T) {
 						Name:      "without-obs",
 						Namespace: "default",
 					},
+					Spec: pods[0].Spec,
 				},
 			},
 		},
@@ -133,6 +598,7 @@ func TestMetricObservability(t *testing.T) {
 							"prometheus.io/scrape": "false",
 						},
 					},
+					Spec: pods[1].Spec,
 				},
 			},
 		},
@@ -150,6 +616,7 @@ func TestMetricObservability(t *testing.T) {
 							"prometheus.io/scrape": "true",
 						},
 					},
+					Spec: pods[2].Spec,
 				},
 			},
 		},
@@ -161,61 +628,67 @@ func TestMetricObservability(t *testing.T) {
 	// Start the metric updater.
 	startMetricUpdater(client, cfg)
 
-	// Check our metrics.
-	var subtests = []struct {
-		expected float64
-		metric   string
-		labels   map[string]string
-	}{
-		{0.0, "solskin_observability_resources", map[string]string{
-			"name":          pods[0].GetName(),
-			"namespace":     pods[0].GetNamespace(),
-			"resource_type": "pod",
-		}},
-		{1.0, "solskin_observability_resources", map[string]string{
-			"name":          pods[1].GetName(),
-			"namespace":     pods[1].GetNamespace(),
-			"resource_type": "pod",
-		}},
-		{1.0, "solskin_observability_resources", map[string]string{
-			"name":          pods[2].GetName(),
-			"namespace":     pods[2].GetNamespace(),
-			"resource_type": "pod",
-		}},
-		{0.0, "solskin_observability_resources", map[string]string{
-			"name":          deployments[0].GetName(),
-			"namespace":     deployments[0].GetNamespace(),
-			"resource_type": "deployment",
-		}},
-		{1.0, "solskin_observability_resources", map[string]string{
-			"name":          deployments[1].GetName(),
-			"namespace":     deployments[1].GetNamespace(),
-			"resource_type": "deployment",
-		}},
-		{1.0, "solskin_observability_resources", map[string]string{
-			"name":          deployments[2].GetName(),
-			"namespace":     deployments[2].GetNamespace(),
-			"resource_type": "deployment",
-		}},
-		{0.0, "solskin_observability_resources", map[string]string{
-			"name":          daemonsets[0].GetName(),
-			"namespace":     daemonsets[0].GetNamespace(),
-			"resource_type": "daemonset",
-		}},
-		{1.0, "solskin_observability_resources", map[string]string{
-			"name":          daemonsets[1].GetName(),
-			"namespace":     daemonsets[1].GetNamespace(),
-			"resource_type": "daemonset",
-		}},
-		{1.0, "solskin_observability_resources", map[string]string{
-			"name":          daemonsets[2].GetName(),
-			"namespace":     daemonsets[2].GetNamespace(),
-			"resource_type": "daemonset",
-		}},
+	subtests := make([]MetricsTest, 0)
+	for idx, pod := range pods {
+		// Determine expected value (first one is false / 0.0).
+		e := 0.0
+		if idx > 0 {
+			e = 1.0
+		}
+
+		// Create the test entry.
+		test := MetricsTest{
+			Expected: e,
+			Name:     "solskin_observability_resources",
+			Labels: map[string]string{
+				"name":          pod.GetName(),
+				"namespace":     pod.GetNamespace(),
+				"resource_type": "pod",
+			},
+		}
+		subtests = append(subtests, test)
+	}
+	for idx, deployment := range deployments {
+		// Determine expected value (first one is false / 0.0).
+		e := 0.0
+		if idx > 0 {
+			e = 1.0
+		}
+
+		// Create the test entry.
+		test := MetricsTest{
+			Expected: e,
+			Name:     "solskin_observability_resources",
+			Labels: map[string]string{
+				"name":          deployment.GetName(),
+				"namespace":     deployment.GetNamespace(),
+				"resource_type": "deployment",
+			},
+		}
+		subtests = append(subtests, test)
+	}
+	for idx, daemonset := range daemonsets {
+		// Determine expected value (first one is false / 0.0).
+		e := 0.0
+		if idx > 0 {
+			e = 1.0
+		}
+
+		// Create the test entry.
+		test := MetricsTest{
+			Expected: e,
+			Name:     "solskin_observability_resources",
+			Labels: map[string]string{
+				"name":          daemonset.GetName(),
+				"namespace":     daemonset.GetNamespace(),
+				"resource_type": "daemonset",
+			},
+		}
+		subtests = append(subtests, test)
 	}
 
 	for _, subtest := range subtests {
-		checkMetrics(t, subtest.metric, subtest.labels, subtest.expected)
+		checkMetrics(t, subtest)
 	}
 }
 
@@ -249,12 +722,16 @@ func TestMetricsService(t *testing.T) {
 	// Start the metric updater.
 	startMetricUpdater(client, cfg)
 
-	labels := map[string]string{
-		"name":          "test",
-		"namespace":     "default",
-		"resource_type": "pod",
+	test := MetricsTest{
+		Expected: 0.0,
+		Name:     "solskin_observability_resources",
+		Labels: map[string]string{
+			"name":          "test",
+			"namespace":     "default",
+			"resource_type": "pod",
+		},
 	}
-	checkMetrics(t, "solskin_observability_resources", labels, 0.0)
+	checkMetrics(t, test)
 }
 
 // Helper function to establish resources in our fake kubernetes cluster.
@@ -291,7 +768,7 @@ func setupKubernetesTestResources(t *testing.T,
 
 // A helper function to start the prometheus service, send a request, and check
 // the value of a specific metric.
-func checkMetrics(t *testing.T, name string, labels map[string]string, value float64) {
+func checkMetrics(t *testing.T, test MetricsTest) {
 	// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
 	// pass 'nil' as the third parameter.
 	req, err := http.NewRequest("GET", "/metrics", nil)
@@ -321,7 +798,7 @@ func checkMetrics(t *testing.T, name string, labels map[string]string, value flo
 
 	for _, family := range families {
 		// If it's not the metric family we're looking for, skip.
-		if family.GetName() != name {
+		if family.GetName() != test.Name {
 			continue
 		}
 
@@ -329,12 +806,12 @@ func checkMetrics(t *testing.T, name string, labels map[string]string, value flo
 		metric := family.GetMetric()
 		for _, m := range metric {
 			labelPairs := m.GetLabel()
-			dest := make(map[string]string, len(labelPairs))
+			labels := make(map[string]string, len(labelPairs))
 			for _, pair := range labelPairs {
-				dest[pair.GetName()] = pair.GetValue()
+				labels[pair.GetName()] = pair.GetValue()
 			}
 
-			eq := reflect.DeepEqual(labels, dest)
+			eq := reflect.DeepEqual(test.Labels, labels)
 			// If the labels aren't equal, continue to next submetric.
 			if !eq {
 				continue
@@ -342,7 +819,7 @@ func checkMetrics(t *testing.T, name string, labels map[string]string, value flo
 
 			// Otherwise we found the exact metric we're looking for.
 			// Time to compare the value, assumes metric is a gauge type.
-			if m.GetGauge().GetValue() != value {
+			if m.GetGauge().GetValue() != test.Expected {
 				t.Errorf("value did not match expected")
 			}
 			return
@@ -350,7 +827,7 @@ func checkMetrics(t *testing.T, name string, labels map[string]string, value flo
 		t.Error("found metric family, but no label match")
 		return
 	}
-	t.Errorf("could not find metric family with name [%s]", name)
+	t.Errorf("could not find metric family with name [%s]", test.Name)
 }
 
 // TODO: metrics to test
