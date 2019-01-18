@@ -11,8 +11,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/expfmt"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
@@ -25,7 +27,132 @@ func TestMetricLiveness(t *testing.T) {
 // TestMetricObservability tests that the metric service correctly reports
 // observability values for kubernetes resources.
 func TestMetricObservability(t *testing.T) {
-	t.Error("not yet implemented")
+	// Create a fake default configuration.
+	cfg := config.NewConfig()
+
+	// Create the fake client.
+	client := fake.NewSimpleClientset()
+
+	// Define our kubernetes resources.
+	pods := []*corev1.Pod{
+		&corev1.Pod{ObjectMeta: metav1.ObjectMeta{
+			Name:      "without-obs",
+			Namespace: "default",
+		}},
+		&corev1.Pod{ObjectMeta: metav1.ObjectMeta{
+			Name:      "with-false-obs",
+			Namespace: "default",
+			Annotations: map[string]string{
+				"prometheus.io/scrape": "false",
+			},
+		}},
+		&corev1.Pod{ObjectMeta: metav1.ObjectMeta{
+			Name:      "with-true-obs",
+			Namespace: "default",
+			Annotations: map[string]string{
+				"prometheus.io/scrape": "true",
+			},
+		}},
+	}
+	deployments := []*appsv1.Deployment{
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "without-obs",
+				Namespace: "default",
+			},
+			Spec: appsv1.DeploymentSpec{
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "without-obs",
+						Namespace: "default",
+					},
+				},
+			},
+		},
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-false-obs",
+				Namespace: "default",
+			},
+			Spec: appsv1.DeploymentSpec{
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "with-false-obs",
+						Namespace: "default",
+						Annotations: map[string]string{
+							"prometheus.io/scrape": "false",
+						},
+					},
+				},
+			},
+		},
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-true-obs",
+				Namespace: "default",
+			},
+			Spec: appsv1.DeploymentSpec{
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "with-true-obs",
+						Namespace: "default",
+						Annotations: map[string]string{
+							"prometheus.io/scrape": "true",
+						},
+					},
+				},
+			},
+		},
+	}
+	daemonsets := []*appsv1.DaemonSet{}
+
+	// Setup resources in the cluster.
+	setupKubernetesTestResources(t, client, pods, deployments, daemonsets)
+
+	// Start the metric updater.
+	startMetricUpdater(client, cfg)
+
+	// Check our metrics.
+	var subtests = []struct {
+		expected float64
+		metric   string
+		labels   map[string]string
+	}{
+		{0.0, "solskin_observability_resources", map[string]string{
+			"name":          pods[0].GetName(),
+			"namespace":     pods[0].GetNamespace(),
+			"resource_type": "pod",
+		}},
+		{1.0, "solskin_observability_resources", map[string]string{
+			"name":          pods[1].GetName(),
+			"namespace":     pods[1].GetNamespace(),
+			"resource_type": "pod",
+		}},
+		{1.0, "solskin_observability_resources", map[string]string{
+			"name":          pods[2].GetName(),
+			"namespace":     pods[2].GetNamespace(),
+			"resource_type": "pod",
+		}},
+		{0.0, "solskin_observability_resources", map[string]string{
+			"name":          deployments[0].GetName(),
+			"namespace":     deployments[0].GetNamespace(),
+			"resource_type": "deployment",
+		}},
+		{1.0, "solskin_observability_resources", map[string]string{
+			"name":          deployments[1].GetName(),
+			"namespace":     deployments[1].GetNamespace(),
+			"resource_type": "deployment",
+		}},
+		{1.0, "solskin_observability_resources", map[string]string{
+			"name":          deployments[2].GetName(),
+			"namespace":     deployments[2].GetNamespace(),
+			"resource_type": "deployment",
+		}},
+	}
+
+	for _, subtest := range subtests {
+		checkMetrics(t, subtest.metric, subtest.labels, subtest.expected)
+	}
 }
 
 // TestMetricLimits tests that the metric service correctly reports limits
