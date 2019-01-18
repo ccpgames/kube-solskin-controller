@@ -128,6 +128,7 @@ func onDaemonSetUpdate(daemonset *appsv1.DaemonSet, cfg config.Config) {
 	forDaemonSetObservability(daemonset)
 	forDaemonSetLiveness(daemonset)
 	forDaemonSetReadiness(daemonset)
+	forDaemonSetLimits(daemonset)
 }
 
 func forDaemonSetObservability(daemonset *appsv1.DaemonSet) {
@@ -180,6 +181,22 @@ func forDaemonSetReadiness(daemonset *appsv1.DaemonSet) {
 	gauge.Set(0.0)
 }
 
+func forDaemonSetLimits(daemonset *appsv1.DaemonSet) {
+	labels := map[string]string{
+		"name":          daemonset.GetName(),
+		"namespace":     daemonset.GetNamespace(),
+		"resource_type": "daemonset",
+	}
+
+	// Create or retrieve our metric.
+	gauge, err := metrics["solskin_limits_resources"].GetMetricWith(labels)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	gauge.Set(0.0)
+}
+
 func onDeploymentDelete(deployment *appsv1.Deployment, cfg config.Config) {
 	// Get the ignore namespace regexp pattern from the configuration.
 	pattern := cfg.Get("ignore_namespace_pattern").String("^kube-")
@@ -225,6 +242,7 @@ func onDeploymentUpdate(deployment *appsv1.Deployment, cfg config.Config) {
 	forDeploymentObservability(deployment)
 	forDeploymentLiveness(deployment)
 	forDeploymentReadiness(deployment)
+	forDeploymentLimits(deployment)
 }
 
 func forDeploymentObservability(deployment *appsv1.Deployment) {
@@ -277,6 +295,22 @@ func forDeploymentReadiness(deployment *appsv1.Deployment) {
 	gauge.Set(0.0)
 }
 
+func forDeploymentLimits(deployment *appsv1.Deployment) {
+	labels := map[string]string{
+		"name":          deployment.GetName(),
+		"namespace":     deployment.GetNamespace(),
+		"resource_type": "deployment",
+	}
+
+	// Create or retrieve our metric.
+	gauge, err := metrics["solskin_limits_resources"].GetMetricWith(labels)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	gauge.Set(0.0)
+}
+
 func onPodDelete(pod *corev1.Pod, cfg config.Config) {
 	// Get the ignore namespace regexp pattern from the configuration.
 	pattern := cfg.Get("ignore_namespace_pattern").String("^kube-")
@@ -322,6 +356,7 @@ func onPodUpdate(pod *corev1.Pod, cfg config.Config) {
 	forPodObservability(pod)
 	forPodLiveness(pod)
 	forPodReadiness(pod)
+	forPodLimits(pod)
 }
 
 func forPodObservability(pod *corev1.Pod) {
@@ -367,6 +402,22 @@ func forPodReadiness(pod *corev1.Pod) {
 
 	// Create or retrieve our metric.
 	gauge, err := metrics["solskin_readiness_resources"].GetMetricWith(labels)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	gauge.Set(0.0)
+}
+
+func forPodLimits(pod *corev1.Pod) {
+	labels := map[string]string{
+		"name":          pod.GetName(),
+		"namespace":     pod.GetNamespace(),
+		"resource_type": "pod",
+	}
+
+	// Create or retrieve our metric.
+	gauge, err := metrics["solskin_limits_resources"].GetMetricWith(labels)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -13,6 +13,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
@@ -695,7 +696,181 @@ func TestMetricObservability(t *testing.T) {
 // TestMetricLimits tests that the metric service correctly reports limits
 // values for kubernetes resources.
 func TestMetricLimits(t *testing.T) {
-	t.Error("not yet implemented")
+	// Create a fake default configuration.
+	cfg := config.NewConfig()
+
+	// Create the fake client.
+	client := fake.NewSimpleClientset()
+
+	// Define our kubernetes resources.
+	pods := []*corev1.Pod{
+		&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "without-limits",
+				Namespace: "default",
+			},
+		},
+		&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-some-limits",
+				Namespace: "default",
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					corev1.Container{
+						Resources: corev1.ResourceRequirements{
+							Limits: corev1.ResourceList{
+								corev1.ResourceCPU:              *resource.NewScaledQuantity(1, resource.Mega),
+								corev1.ResourceEphemeralStorage: *resource.NewScaledQuantity(1, resource.Mega),
+							},
+						},
+					},
+				},
+			},
+		},
+		&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-all-limits",
+				Namespace: "default",
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					corev1.Container{
+						Resources: corev1.ResourceRequirements{
+							Limits: corev1.ResourceList{
+								corev1.ResourceCPU:              *resource.NewScaledQuantity(1, resource.Mega),
+								corev1.ResourceMemory:           *resource.NewScaledQuantity(1, resource.Mega),
+								corev1.ResourceStorage:          *resource.NewScaledQuantity(1, resource.Mega),
+								corev1.ResourceEphemeralStorage: *resource.NewScaledQuantity(1, resource.Mega),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	deployments := []*appsv1.Deployment{
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "without-limits",
+				Namespace: "default",
+			},
+		},
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-some-limits",
+				Namespace: "default",
+			},
+			Spec: appsv1.DeploymentSpec{
+				Template: corev1.PodTemplateSpec{
+					Spec: pods[1].Spec,
+				},
+			},
+		},
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-all-limits",
+				Namespace: "default",
+			},
+			Spec: appsv1.DeploymentSpec{
+				Template: corev1.PodTemplateSpec{
+					Spec: pods[2].Spec,
+				},
+			},
+		},
+	}
+	daemonsets := []*appsv1.DaemonSet{
+		&appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "without-limits",
+				Namespace: "default",
+			},
+		},
+		&appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-some-limits",
+				Namespace: "default",
+			},
+			Spec: appsv1.DaemonSetSpec{
+				Template: corev1.PodTemplateSpec{
+					Spec: pods[1].Spec,
+				},
+			},
+		},
+		&appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-all-limits",
+				Namespace: "default",
+			},
+			Spec: appsv1.DaemonSetSpec{
+				Template: corev1.PodTemplateSpec{
+					Spec: pods[2].Spec,
+				},
+			},
+		},
+	}
+
+	// Setup resources in the cluster.
+	setupKubernetesTestResources(t, client, pods, deployments, daemonsets)
+
+	// Start the metric updater.
+	startMetricUpdater(client, cfg)
+
+	subtests := make([]MetricsTest, 0)
+	for idx, pod := range pods {
+		// Determine expected value (first one is false / 0.0).
+		e := 2.0 * float64(idx)
+
+		// Create the test entry.
+		test := MetricsTest{
+			Expected: e,
+			Name:     "solskin_limits_resources",
+			Labels: map[string]string{
+				"name":          pod.GetName(),
+				"namespace":     pod.GetNamespace(),
+				"resource_type": "pod",
+			},
+		}
+		subtests = append(subtests, test)
+	}
+
+	for idx, deployment := range deployments {
+		// Determine expected value (first one is false / 0.0).
+		e := 2.0 * float64(idx)
+
+		// Create the test entry.
+		test := MetricsTest{
+			Expected: e,
+			Name:     "solskin_limits_resources",
+			Labels: map[string]string{
+				"name":          deployment.GetName(),
+				"namespace":     deployment.GetNamespace(),
+				"resource_type": "deployment",
+			},
+		}
+		subtests = append(subtests, test)
+	}
+
+	for idx, daemonset := range daemonsets {
+		// Determine expected value (first one is false / 0.0).
+		e := 2.0 * float64(idx)
+
+		// Create the test entry.
+		test := MetricsTest{
+			Expected: e,
+			Name:     "solskin_limits_resources",
+			Labels: map[string]string{
+				"name":          daemonset.GetName(),
+				"namespace":     daemonset.GetNamespace(),
+				"resource_type": "daemonset",
+			},
+		}
+		subtests = append(subtests, test)
+	}
+
+	for _, subtest := range subtests {
+		checkMetrics(t, subtest)
+	}
 }
 
 // TestMetricsService perform a simple test of the service.
@@ -819,8 +994,9 @@ func checkMetrics(t *testing.T, test MetricsTest) {
 
 			// Otherwise we found the exact metric we're looking for.
 			// Time to compare the value, assumes metric is a gauge type.
+			v := m.GetGauge().GetValue()
 			if m.GetGauge().GetValue() != test.Expected {
-				t.Errorf("value did not match expected")
+				t.Errorf("value did not match, expected [%f], actual [%f]", test.Expected, v)
 			}
 			return
 		}
