@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"regexp"
+	"time"
 )
 
 func startMetricUpdater(client kubernetes.Interface, cfg config.Config) {
@@ -66,8 +67,23 @@ func startMetricUpdater(client kubernetes.Interface, cfg config.Config) {
 		},
 	})
 
-	go dplInformer.Run(stopper)
-	podInformer.Run(stopper)
+	informers := make([]cache.SharedIndexInformer, 3)
+	informers[0] = dplInformer
+	informers[1] = dmsInformer
+	informers[2] = podInformer
+
+	// Start each informer.
+	for _, informer := range informers {
+		go informer.Run(stopper)
+	}
+
+	// Wait until each informer has synced before returning.
+	for _, informer := range informers {
+		for !informer.HasSynced() {
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+
 }
 
 func onDaemonSetDelete(daemonset *appsv1.DaemonSet, cfg config.Config) {
