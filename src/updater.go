@@ -26,8 +26,6 @@ func startMetricUpdater(client kubernetes.Interface, cfg config.Config) {
 	stopper := make(chan struct{})
 	defer close(stopper)
 
-	// TODO: remove metrics when a resource goes away
-
 	// Setup our daemonset informer.
 	dmsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
