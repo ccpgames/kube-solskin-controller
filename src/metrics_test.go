@@ -66,6 +66,38 @@ func TestMetricsService(t *testing.T) {
 	checkMetrics(t, "solskin_observability_resources", labels, 0.0)
 }
 
+// Helper function to establish resources in our fake kubernetes cluster.
+func setupKubernetesTestResources(t *testing.T,
+	client kubernetes.Interface,
+	pods []*corev1.Pod,
+	deployments []*appsv1.Deployment,
+	daemonsets []*appsv1.DaemonSet,
+) {
+	// Add our pods to the cluster.
+	for _, r := range pods {
+		_, err := client.Core().Pods(r.GetNamespace()).Create(r)
+		if err != nil {
+			t.Error(err)
+		}
+	}
+
+	// Add our deployments to the cluster.
+	for _, r := range deployments {
+		_, err := client.Apps().Deployments(r.GetNamespace()).Create(r)
+		if err != nil {
+			t.Error(err)
+		}
+	}
+
+	// Add our daemonsets to the cluster.
+	for _, r := range daemonsets {
+		_, err := client.Apps().DaemonSets(r.GetNamespace()).Create(r)
+		if err != nil {
+			t.Error(err)
+		}
+	}
+}
+
 // A helper function to start the prometheus service, send a request, and check
 // the value of a specific metric.
 func checkMetrics(t *testing.T, name string, labels map[string]string, value float64) {
