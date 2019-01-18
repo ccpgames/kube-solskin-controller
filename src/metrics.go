@@ -25,7 +25,7 @@ import (
 var metrics = map[string]*prometheus.GaugeVec{
 	// Solskin metric for the observability of kubernetes resources.
 	"solskin_observability_resources": prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "solskin_observable_resources",
+		Name: "solskin_observability_resources",
 		Help: "...",
 	}, []string{"name", "namespace", "resource_type"}),
 
