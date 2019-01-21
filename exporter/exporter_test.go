@@ -1,15 +1,19 @@
 package exporter
 
 import (
+	// "log"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/expfmt"
-	"github.com/stretchr/testify/assert"
+	// "github.com/stretchr/testify/assert"
 
+	core "k8s.io/api/core/v1"
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
@@ -20,30 +24,60 @@ type MetricsTest struct {
 	Labels   map[string]string
 }
 
-func TestBasicMetric(t *testing.T) {
-	assert.Fail("not yet implemented")
-}
-
 func TestObservability(t *testing.T) {
-	assert.Fail(t, "not yet implemented")
-	// client := setupMetrics()
+	client := fake.NewSimpleClientset()
 
 	// do whatever here with the fake client
+	pods := []*core.Pod{
+		&core.Pod{ObjectMeta: meta.ObjectMeta{
+			Name:      "without-obs",
+			Namespace: "default",
+		}},
+		&core.Pod{ObjectMeta: meta.ObjectMeta{
+			Name:      "with-false-obs",
+			Namespace: "default",
+			Annotations: map[string]string{
+				"prometheus.io/scrape": "false",
+			},
+		}},
+		&core.Pod{ObjectMeta: meta.ObjectMeta{
+			Name:      "with-true-obs",
+			Namespace: "default",
+			Annotations: map[string]string{
+				"prometheus.io/scrape": "true",
+			},
+		}},
+	}
+	for _, object := range pods {
+		client.Core().Pods(object.Namespace).Create(object)
+	}
 
 	// check metrics here
+	checkMetrics(t, MetricsTest{
+		Expected: 0,
+		Name:     "solskin_observability_resources",
+		Labels: map[string]string{
+			"name":          "without-obs",
+			"namespace":     "default",
+			"resource_type": "pod",
+		},
+	})
 }
 
 // A helper function to create fake kubernetes client, start the metrics
 // service, and return the client.
-func setupMetrics() *kubernetes.Clientset {
-	client := fake.NewSimpleClientset()
-	go Start(client, nil)
-	return client
-}
+// func setupMetrics() *kubernetes.Clientset {
+// 	client := fake.NewSimpleClientset()
+// 	go Start(client, nil)
+// 	return client
+// }
 
 // A helper function to start the prometheus service, send a request, and check
 // the value of a specific metric.
 func checkMetrics(t *testing.T, test MetricsTest) {
+	// Wait for just a little bit to allow the informer to do their job.
+	time.Sleep(100 * time.Millisecond)
+
 	// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
 	// pass 'nil' as the third parameter.
 	req, err := http.NewRequest("GET", "/metrics", nil)
@@ -72,6 +106,7 @@ func checkMetrics(t *testing.T, test MetricsTest) {
 	}
 
 	for _, family := range families {
+		// log.Println(family)
 		// If it's not the metric family we're looking for, skip.
 		if family.GetName() != test.Name {
 			continue

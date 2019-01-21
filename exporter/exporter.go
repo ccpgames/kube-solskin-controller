@@ -15,7 +15,7 @@ import (
 
 	// apps "k8s.io/api/apps/v1"
 	// core "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -31,7 +31,27 @@ var categories = []string{
 var metrics = make(map[string]*prometheus.GaugeVec, len(categories))
 
 // Start will initialize and run the metrics service.
-func Start(client *kubernetes.Clientset, stopper <-chan os.Signal) {
+func Start(client kubernetes.Interface, stopper <-chan os.Signal) {
+	startExporter(client)
+
+	// TODO: handle errors
+	server := &http.Server{
+		Addr: ":8080",
+	}
+	http.Handle("/metrics", promhttp.Handler())
+	log.Println("starting metric exporter server")
+	go server.ListenAndServe()
+
+	<-stopper
+	log.Println("received stopper signal")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Stop the http server. TODO: handle errors
+	server.Shutdown(ctx)
+}
+
+func startExporter(client kubernetes.Interface) {
 	// Initialize our metrics.
 	for _, category := range categories {
 		metrics[category] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -70,32 +90,13 @@ func Start(client *kubernetes.Clientset, stopper <-chan os.Signal) {
 		}
 	}
 	log.Println("informers have synced")
-
-	// TODO: handle errors
-	server := &http.Server{
-		Addr: ":8080",
-	}
-	http.Handle("/metrics", promhttp.Handler())
-	log.Println("starting metric exporter server")
-	go server.ListenAndServe()
-
-	<-stopper
-	log.Println("received stopper signal")
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	// Stop the http server. TODO: handle errors
-	server.Shutdown(ctx)
-
-	// Once we've received the stop signal, close the informer channel.
-	close(s)
 }
 
-func getObjectMeta(obj interface{}) (metav1.ObjectMeta, string) {
+func getObjectMeta(obj interface{}) (meta.ObjectMeta, string) {
 	// Use reflection to determine resource type.
 	// I don't like this but I can't find a better way of doing it at the moment.
 	v := reflect.Indirect(reflect.ValueOf(obj))
-	objectMeta := v.FieldByName("ObjectMeta").Interface().(metav1.ObjectMeta)
+	objectMeta := v.FieldByName("ObjectMeta").Interface().(meta.ObjectMeta)
 	return objectMeta, strings.ToLower(v.Type().Name())
 }
 
@@ -131,8 +132,8 @@ func onObjectDelete(obj interface{}) {
 	}
 }
 
-func hasAnnotation(meta metav1.ObjectMeta, annotation string) bool {
-	annotations := meta.GetAnnotations()
+func hasAnnotation(objectMeta meta.ObjectMeta, annotation string) bool {
+	annotations := objectMeta.GetAnnotations()
 	for key := range annotations {
 		if key == annotation {
 			return true
