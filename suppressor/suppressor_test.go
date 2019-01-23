@@ -48,31 +48,7 @@ func TestSuppressionDecision(t *testing.T) {
 		ResourceTest{
 			Expected: true,
 			Resource: &core.Pod{
-				ObjectMeta: meta.ObjectMeta{
-					Annotations: map[string]string{},
-				},
-			},
-		},
-
-		ResourceTest{
-			Expected: false,
-			Resource: &core.Pod{
-				ObjectMeta: meta.ObjectMeta{
-					Annotations: map[string]string{
-						"prometheus.io/scrape": "false",
-					},
-				},
-			},
-		},
-
-		ResourceTest{
-			Expected: false,
-			Resource: &core.Pod{
-				ObjectMeta: meta.ObjectMeta{
-					Annotations: map[string]string{
-						"prometheus.io/scrape": "true",
-					},
-				},
+				ObjectMeta: meta.ObjectMeta{},
 			},
 		},
 	}
@@ -82,6 +58,6 @@ func TestSuppressionDecision(t *testing.T) {
 	}
 	for _, test := range tests {
 		actual := s.toSuppress(test.Resource)
-		assert.Exactly(t, actual, test.Expected)
+		assert.Exactly(t, test.Expected, actual)
 	}
 }
