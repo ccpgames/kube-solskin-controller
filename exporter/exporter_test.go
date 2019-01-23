@@ -24,7 +24,7 @@ type MetricsTest struct {
 	Labels   map[string]string
 }
 
-func TestObservability(t *testing.T) {
+func TestPodObservability(t *testing.T) {
 	client := fake.NewSimpleClientset()
 
 	// do whatever here with the fake client
@@ -52,34 +52,52 @@ func TestObservability(t *testing.T) {
 		client.Core().Pods(object.Namespace).Create(object)
 	}
 
-	// check metrics here
-	checkMetrics(t, MetricsTest{
-		Expected: 0,
-		Name:     "solskin_observability_resources",
-		Labels: map[string]string{
-			"name":          "without-obs",
-			"namespace":     "default",
-			"resource_type": "pod",
-		},
-	})
-}
+	// Start the exporter service.
+	startExporter(client)
 
-// A helper function to create fake kubernetes client, start the metrics
-// service, and return the client.
-// func setupMetrics() *kubernetes.Clientset {
-// 	client := fake.NewSimpleClientset()
-// 	go Start(client, nil)
-// 	return client
-// }
+	// Define our expected metrics.
+	tests := []MetricsTest{
+		MetricsTest{
+			Expected: 0,
+			Name:     "solskin_observability_resources",
+			Labels: map[string]string{
+				"name":          "without-obs",
+				"namespace":     "default",
+				"resource_type": "pod",
+			},
+		},
+		MetricsTest{
+			Expected: 0,
+			Name:     "solskin_observability_resources",
+			Labels: map[string]string{
+				"name":          "with-false-obs",
+				"namespace":     "default",
+				"resource_type": "pod",
+			},
+		},
+		MetricsTest{
+			Expected: 0,
+			Name:     "solskin_observability_resources",
+			Labels: map[string]string{
+				"name":          "with-true-obs",
+				"namespace":     "default",
+				"resource_type": "pod",
+			},
+		},
+	}
+
+	// Check our expected metrics against the exporter.
+	checkMetrics(t, tests)
+}
 
 // A helper function to start the prometheus service, send a request, and check
 // the value of a specific metric.
-func checkMetrics(t *testing.T, test MetricsTest) {
+func checkMetrics(t *testing.T, tests []MetricsTest) {
 	// Wait for just a little bit to allow the informer to do their job.
 	time.Sleep(100 * time.Millisecond)
 
-	// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
-	// pass 'nil' as the third parameter.
+	// Create a request to pass to our handler. We don't have any query
+	// parameters for now, so we'll pass 'nil' as the third parameter.
 	req, err := http.NewRequest("GET", "/metrics", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -105,38 +123,39 @@ func checkMetrics(t *testing.T, test MetricsTest) {
 		t.Error(err)
 	}
 
-	for _, family := range families {
-		// log.Println(family)
-		// If it's not the metric family we're looking for, skip.
-		if family.GetName() != test.Name {
-			continue
-		}
-
-		// Check each individual set of label pairings.
-		metric := family.GetMetric()
-		for _, m := range metric {
-			labelPairs := m.GetLabel()
-			labels := make(map[string]string, len(labelPairs))
-			for _, pair := range labelPairs {
-				labels[pair.GetName()] = pair.GetValue()
-			}
-
-			eq := reflect.DeepEqual(test.Labels, labels)
-			// If the labels aren't equal, continue to next submetric.
-			if !eq {
+	for _, test := range tests {
+		for _, family := range families {
+			// If it's not the metric family we're looking for, skip.
+			if family.GetName() != test.Name {
 				continue
 			}
 
-			// Otherwise we found the exact metric we're looking for.
-			// Time to compare the value, assumes metric is a gauge type.
-			v := m.GetGauge().GetValue()
-			if m.GetGauge().GetValue() != test.Expected {
-				t.Errorf("value did not match, expected [%f], actual [%f]", test.Expected, v)
+			// Check each individual set of label pairings.
+			metric := family.GetMetric()
+			for _, m := range metric {
+				labelPairs := m.GetLabel()
+				labels := make(map[string]string, len(labelPairs))
+				for _, pair := range labelPairs {
+					labels[pair.GetName()] = pair.GetValue()
+				}
+
+				eq := reflect.DeepEqual(test.Labels, labels)
+				// If the labels aren't equal, continue to next submetric.
+				if !eq {
+					continue
+				}
+
+				// Otherwise we found the exact metric we're looking for.
+				// Time to compare the value, assumes metric is a gauge type.
+				v := m.GetGauge().GetValue()
+				if m.GetGauge().GetValue() != test.Expected {
+					t.Errorf("value did not match, expected [%f], actual [%f]", test.Expected, v)
+				}
+				return
 			}
+			t.Error("found metric family, but no label match")
 			return
 		}
-		t.Error("found metric family, but no label match")
-		return
+		t.Errorf("could not find metric family with name [%s]", test.Name)
 	}
-	t.Errorf("could not find metric family with name [%s]", test.Name)
 }
