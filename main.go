@@ -2,15 +2,18 @@ package main
 
 import (
 	"fmt"
+	"github.com/kubernetes/client-go/informers"
+	"k8s.io/client-go/tools/cache"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/celestialorb/solskin/exporter"
-	"github.com/celestialorb/solskin/notifier"
+	"github.com/celestialorb/solskin/metrics"
 	"github.com/celestialorb/solskin/suppressor"
-	"github.com/micro/go-config"
+	config "github.com/micro/go-config"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -36,9 +39,64 @@ func main() {
 	signal.Notify(stopper, syscall.SIGTERM)
 	signal.Notify(stopper, syscall.SIGINT)
 
-	go exporter.Start(client, stopper)
-	go notifier.Start(stopper)
-	go suppressor.Start(stopper)
+	// Create our services.
+	services := []SolskinService{
+		exporter.Service{},
+		metrics.Service{},
+		suppressor.Service{},
+	}
 
+	// Create our informers
+	factory := informers.NewSharedInformerFactory(client, 0)
+	informers := []cache.SharedIndexInformer{
+		factory.Apps().V1().DaemonSets().Informer(),
+		factory.Apps().V1().Deployments().Informer(),
+		factory.Apps().V1().ReplicaSets().Informer(),
+		factory.Apps().V1().StatefulSets().Informer(),
+		factory.Batch().V1().Jobs().Informer(),
+		factory.Core().V1().Pods().Informer(),
+	}
+
+	handlers := make([]cache.ResourceEventHandlerFuncs, 0)
+	for _, service := range services {
+		handlers = append(handlers, service.GenerateEventHandlers()...)
+	}
+
+	for _, informer := range informers {
+		for _, handler := range handlers {
+			informer.AddEventHandler(handler)
+		}
+	}
+
+	// Spool up services here.
+	for _, service := range services {
+		service.Start(client, cfg)
+	}
+
+	// Start our informers.
+	s := make(chan struct{})
+	for _, informer := range informers {
+		go informer.Run(s)
+	}
+	defer close(s)
+
+	// Wait until our informer has synced.
+	log.Println("waiting for informers to sync")
+	for _, informer := range informers {
+		for !informer.HasSynced() {
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+	log.Println("informers have synced")
+
+	// Wait for kill signal.
 	<-stopper
+	log.Println("RECEIVED KILL SIGNAL")
+}
+
+// SolskinService ...
+type SolskinService interface {
+	GenerateEventHandlers() []cache.ResourceEventHandlerFuncs
+	GetConfigurationSlug() string
+	Start(client kubernetes.Interface, cfg config.Config)
 }

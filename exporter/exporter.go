@@ -1,25 +1,16 @@
 package exporter
 
 import (
-	"context"
 	"fmt"
+	"github.com/micro/go-config"
 	"log"
-	"net/http"
-	"os"
-	"reflect"
-	"strings"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	// apps "k8s.io/api/apps/v1"
-	// core "k8s.io/api/core/v1"
-	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/celestialorb/solskin/common"
 )
 
 var categories = []string{
@@ -30,28 +21,27 @@ var categories = []string{
 }
 var metrics = make(map[string]*prometheus.GaugeVec, len(categories))
 
-// Start will initialize and run the metrics service.
-func Start(client kubernetes.Interface, stopper <-chan os.Signal) {
-	startExporter(client)
+// Service TODO
+type Service struct{}
 
-	// TODO: handle errors
-	server := &http.Server{
-		Addr: ":8080",
-	}
-	http.Handle("/metrics", promhttp.Handler())
-	log.Println("starting metric exporter server")
-	go server.ListenAndServe()
-
-	<-stopper
-	log.Println("received stopper signal")
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	// Stop the http server. TODO: handle errors
-	server.Shutdown(ctx)
+// GetConfigurationSlug TODO
+func (s Service) GetConfigurationSlug() string {
+	return "exporter"
 }
 
-func startExporter(client kubernetes.Interface) {
+// GenerateEventHandlers TODO
+func (s Service) GenerateEventHandlers() []cache.ResourceEventHandlerFuncs {
+	return []cache.ResourceEventHandlerFuncs{
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    func(obj interface{}) { s.onObjectChange(obj) },
+			UpdateFunc: func(_, obj interface{}) { s.onObjectChange(obj) },
+			DeleteFunc: func(obj interface{}) { s.onObjectDelete(obj) },
+		},
+	}
+}
+
+// Start will initialize and run the metrics service.
+func (s Service) Start(client kubernetes.Interface, cfg config.Config) {
 	// Initialize our metrics.
 	for _, category := range categories {
 		metrics[category] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -60,50 +50,14 @@ func startExporter(client kubernetes.Interface) {
 		}, []string{"name", "namespace", "resource_type"})
 		prometheus.MustRegister(metrics[category])
 	}
-
-	factory := informers.NewSharedInformerFactory(client, 0)
-	informers := []cache.SharedIndexInformer{
-		factory.Apps().V1().DaemonSets().Informer(),
-		factory.Apps().V1().Deployments().Informer(),
-		factory.Apps().V1().ReplicaSets().Informer(),
-		factory.Apps().V1().StatefulSets().Informer(),
-		factory.Batch().V1().Jobs().Informer(),
-		factory.Core().V1().Pods().Informer(),
-	}
-
-	s := make(chan struct{})
-	for _, informer := range informers {
-		informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { onObjectChange(obj) },
-			UpdateFunc: func(_, obj interface{}) { onObjectChange(obj) },
-			DeleteFunc: func(obj interface{}) { onObjectDelete(obj) },
-		})
-
-		go informer.Run(s)
-	}
-
-	// Wait until our informer has synced.
-	log.Println("waiting for informer to sync")
-	for _, informer := range informers {
-		for !informer.HasSynced() {
-			time.Sleep(10 * time.Millisecond)
-		}
-	}
-	log.Println("informers have synced")
-}
-
-func getObjectMeta(obj interface{}) (meta.ObjectMeta, string) {
-	// Use reflection to determine resource type.
-	// I don't like this but I can't find a better way of doing it at the moment.
-	v := reflect.Indirect(reflect.ValueOf(obj))
-	objectMeta := v.FieldByName("ObjectMeta").Interface().(meta.ObjectMeta)
-	return objectMeta, strings.ToLower(v.Type().Name())
 }
 
 // Called when one of the informers detects either a new or updated kubernetes
 // resource, with the object as the input parameter.
-func onObjectChange(obj interface{}) {
-	objectMeta, ktype := getObjectMeta(obj)
+func (s Service) onObjectChange(obj interface{}) {
+	log.Println("EXPORTER [onObjectChange]")
+
+	objectMeta, ktype := common.GetObjectMeta(obj)
 	labels := map[string]string{
 		"name":          objectMeta.GetName(),
 		"namespace":     objectMeta.GetNamespace(),
@@ -117,14 +71,16 @@ func onObjectChange(obj interface{}) {
 	}
 
 	// Set our metric.
-	observable := b2f64(hasAnnotation(objectMeta, "prometheus.io/scrape"))
-	gauge.Set(observable)
+	observable := common.HasObservability(objectMeta)
+	gauge.Set(common.BooleanToFloat64(observable))
 }
 
 // Called when one of the informers detects a deleted kubernetes resource,
-//  with the object as the input parameter.
-func onObjectDelete(obj interface{}) {
-	objectMeta, ktype := getObjectMeta(obj)
+// with the object as the input parameter.
+func (s Service) onObjectDelete(obj interface{}) {
+	log.Println("EXPORTER [onObjectDelete]")
+
+	objectMeta, ktype := common.GetObjectMeta(obj)
 	labels := map[string]string{
 		"name":          objectMeta.GetName(),
 		"namespace":     objectMeta.GetNamespace(),
@@ -134,25 +90,4 @@ func onObjectDelete(obj interface{}) {
 	for _, metric := range metrics {
 		metric.Delete(labels)
 	}
-}
-
-// Helper function to determine is a given annotation exists in the object's
-// metadata.
-func hasAnnotation(objectMeta meta.ObjectMeta, annotation string) bool {
-	annotations := objectMeta.GetAnnotations()
-	for key := range annotations {
-		if key == annotation {
-			return true
-		}
-	}
-
-	return false
-}
-
-// Helper function to convert a boolean value into a float64.
-func b2f64(value bool) float64 {
-	if value {
-		return 1.0
-	}
-	return 0.0
 }

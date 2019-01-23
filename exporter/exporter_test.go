@@ -53,7 +53,7 @@ func TestPodObservability(t *testing.T) {
 	}
 
 	// Start the exporter service.
-	startExporter(client)
+	// startExporter(client)
 
 	// Define our expected metrics.
 	tests := []MetricsTest{
