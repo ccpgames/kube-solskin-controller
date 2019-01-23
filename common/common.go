@@ -27,11 +27,36 @@ func HasObservability(objectMeta meta.ObjectMeta) bool {
 
 // HasLiveness determines if the spec has proper liveness probes.
 func HasLiveness(spec core.PodSpec) bool {
-	return false
+	for _, container := range spec.Containers {
+		h := container.LivenessProbe.Handler
+		if !hasDefinedHandler(h) {
+			return false
+		}
+	}
+	return true
 }
 
 // HasReadiness determines if the spec has proper readiness probes.
 func HasReadiness(spec core.PodSpec) bool {
+	for _, container := range spec.Containers {
+		h := container.ReadinessProbe.Handler
+		if !hasDefinedHandler(h) {
+			return false
+		}
+	}
+	return true
+}
+
+func hasDefinedHandler(h core.Handler) bool {
+	if h.Exec != nil {
+		return true
+	}
+	if h.HTTPGet != nil {
+		return true
+	}
+	if h.TCPSocket != nil {
+		return true
+	}
 	return false
 }
 
