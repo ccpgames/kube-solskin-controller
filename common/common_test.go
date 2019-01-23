@@ -3,6 +3,7 @@ package common
 import (
 	"github.com/stretchr/testify/assert"
 	core "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 )
@@ -304,5 +305,73 @@ func TestHasReadiness(t *testing.T) {
 	}
 }
 func TestHasLimits(t *testing.T) {
-	assert.Fail(t, "not yet implemented")
+	tests := []SpecTest{
+		// Basic test with no resource limits.
+		SpecTest{
+			Expected: false,
+			Spec: core.PodSpec{
+				Containers: []core.Container{
+					core.Container{
+						Resources: core.ResourceRequirements{
+							Limits: core.ResourceList{},
+						},
+					},
+				},
+			},
+		},
+
+		// Basic test with only CPU resource limits.
+		SpecTest{
+			Expected: false,
+			Spec: core.PodSpec{
+				Containers: []core.Container{
+					core.Container{
+						Resources: core.ResourceRequirements{
+							Limits: core.ResourceList{
+								core.ResourceCPU: *resource.NewScaledQuantity(1, resource.Mega),
+							},
+						},
+					},
+				},
+			},
+		},
+
+		// Basic test with only memory resource limits.
+		SpecTest{
+			Expected: false,
+			Spec: core.PodSpec{
+				Containers: []core.Container{
+					core.Container{
+						Resources: core.ResourceRequirements{
+							Limits: core.ResourceList{
+								core.ResourceMemory: *resource.NewScaledQuantity(1, resource.Mega),
+							},
+						},
+					},
+				},
+			},
+		},
+
+		// Basic test with both resource limits.
+		SpecTest{
+			Expected: true,
+			Spec: core.PodSpec{
+				Containers: []core.Container{
+					core.Container{
+						Resources: core.ResourceRequirements{
+							Limits: core.ResourceList{
+								core.ResourceCPU:    *resource.NewScaledQuantity(1, resource.Mega),
+								core.ResourceMemory: *resource.NewScaledQuantity(1, resource.Mega),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		actual := HasLimits(test.Spec)
+		assert.Exactly(t, test.Expected, actual)
+	}
 }
