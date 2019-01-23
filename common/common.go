@@ -62,7 +62,27 @@ func hasDefinedHandler(h core.Handler) bool {
 
 // HasLimits determines if the spec has a proper resource limits.
 func HasLimits(spec core.PodSpec) bool {
-	return false
+	for _, container := range spec.Containers {
+		r := container.Resources.Limits
+		if !hasAllLimits(r) {
+			return false
+		}
+	}
+	return true
+}
+
+func hasAllLimits(r core.ResourceList) bool {
+	keys := []core.ResourceName{
+		core.ResourceCPU,
+		core.ResourceMemory,
+	}
+	for _, k := range keys {
+		_, ok := r[k]
+		if !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // GetObjectMeta TODO
