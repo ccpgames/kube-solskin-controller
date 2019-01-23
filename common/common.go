@@ -27,6 +27,10 @@ func HasObservability(objectMeta meta.ObjectMeta) bool {
 
 // HasLiveness determines if the spec has proper liveness probes.
 func HasLiveness(spec core.PodSpec) bool {
+	if len(spec.Containers) <= 0 {
+		return false
+	}
+
 	for _, container := range spec.Containers {
 		h := container.LivenessProbe.Handler
 		if !hasDefinedHandler(h) {
