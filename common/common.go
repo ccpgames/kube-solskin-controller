@@ -66,6 +66,10 @@ func HasLimits(spec core.PodSpec) bool {
 		r := container.Resources.Limits
 		if !hasAllLimits(r) {
 			return false
+	if len(spec.Containers) <= 0 {
+		return false
+	}
+
 		}
 	}
 	return true
