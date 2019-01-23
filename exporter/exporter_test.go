@@ -90,6 +90,22 @@ func TestPodObservability(t *testing.T) {
 	checkMetrics(t, tests)
 }
 
+// TODO: moar tests
+// Test Matrix is as follows:
+// (two dimensions: resource_type, metric_type)
+//	resource types:
+//		- pods
+//		- replica sets
+//		- deployments
+//		- daemon sets
+//		- jobs
+//
+//	metric types:
+//		- observability
+//		- liveness
+//		- readiness
+//		- resource limits
+
 // A helper function to start the prometheus service, send a request, and check
 // the value of a specific metric.
 func checkMetrics(t *testing.T, tests []MetricsTest) {
