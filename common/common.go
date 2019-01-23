@@ -42,6 +42,10 @@ func HasLiveness(spec core.PodSpec) bool {
 
 // HasReadiness determines if the spec has proper readiness probes.
 func HasReadiness(spec core.PodSpec) bool {
+	if len(spec.Containers) <= 0 {
+		return false
+	}
+
 	for _, container := range spec.Containers {
 		h := container.ReadinessProbe.Handler
 		if !hasDefinedHandler(h) {
@@ -66,14 +70,14 @@ func hasDefinedHandler(h core.Handler) bool {
 
 // HasLimits determines if the spec has a proper resource limits.
 func HasLimits(spec core.PodSpec) bool {
-	for _, container := range spec.Containers {
-		r := container.Resources.Limits
-		if !hasAllLimits(r) {
-			return false
 	if len(spec.Containers) <= 0 {
 		return false
 	}
 
+	for _, container := range spec.Containers {
+		r := container.Resources.Limits
+		if !hasAllLimits(r) {
+			return false
 		}
 	}
 	return true
