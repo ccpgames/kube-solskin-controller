@@ -163,5 +163,5 @@ func toSuppress(m meta.ObjectMeta, spec core.PodSpec) bool {
 		common.HasLimits(spec),
 	}
 
-	return common.PassesChecks(checks)
+	return !common.PassesChecks(checks)
 }
