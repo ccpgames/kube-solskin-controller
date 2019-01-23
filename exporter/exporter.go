@@ -100,6 +100,8 @@ func getObjectMeta(obj interface{}) (meta.ObjectMeta, string) {
 	return objectMeta, strings.ToLower(v.Type().Name())
 }
 
+// Called when one of the informers detects either a new or updated kubernetes
+// resource, with the object as the input parameter.
 func onObjectChange(obj interface{}) {
 	objectMeta, ktype := getObjectMeta(obj)
 	labels := map[string]string{
@@ -119,6 +121,8 @@ func onObjectChange(obj interface{}) {
 	gauge.Set(observable)
 }
 
+// Called when one of the informers detects a deleted kubernetes resource,
+//  with the object as the input parameter.
 func onObjectDelete(obj interface{}) {
 	objectMeta, ktype := getObjectMeta(obj)
 	labels := map[string]string{
@@ -132,6 +136,8 @@ func onObjectDelete(obj interface{}) {
 	}
 }
 
+// Helper function to determine is a given annotation exists in the object's
+// metadata.
 func hasAnnotation(objectMeta meta.ObjectMeta, annotation string) bool {
 	annotations := objectMeta.GetAnnotations()
 	for key := range annotations {
@@ -143,6 +149,7 @@ func hasAnnotation(objectMeta meta.ObjectMeta, annotation string) bool {
 	return false
 }
 
+// Helper function to convert a boolean value into a float64.
 func b2f64(value bool) float64 {
 	if value {
 		return 1.0
