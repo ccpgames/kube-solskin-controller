@@ -7,7 +7,6 @@ RUN mkdir -p /go/src/${PROJECT}
 WORKDIR /go/src/${PROJECT}
 COPY ./ ./
 RUN go get ./...
-RUN go test ./...
 RUN GOOS=linux go build -o /app ./
 
 FROM golang:alpine
