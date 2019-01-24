@@ -7,10 +7,7 @@ jobs:
     working_directory: /go/src/github.com/celestialorb/solskin
     steps:
     - checkout
-    - run: echo ${GOPATH}
-    - run: pwd
-    - run: go get ./...
-    - run: go test ./...
+    - run: go get ./... && go test ./...
 
 workflows:
   main:
