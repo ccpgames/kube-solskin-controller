@@ -26,3 +26,5 @@ workflows:
     - test
     - build:
         context: celestialorb
+        requires:
+          - test
