@@ -4,8 +4,11 @@ jobs:
   test:
     docker:
     - image: theyorkshiredev/golang-git
+    environment:
+      GOPATH: /opt/go
     steps:
     - checkout
+    - run: mkdir -p ${GOPATH}
     - run: go get ./...
     - run: go test ./...
 
