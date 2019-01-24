@@ -1,6 +1,7 @@
 package common
 
 import (
+	config "github.com/micro/go-config"
 	"github.com/stretchr/testify/assert"
 	apps "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"
@@ -20,23 +21,58 @@ type SpecTest struct {
 	Spec     core.PodSpec
 }
 
+func TestEligibility(t *testing.T) {
+	type Test struct {
+		Expected      bool
+		Resource      interface{}
+		Configuration config.Config
+	}
+
+	// Define our tests.
+	tests := []Test{
+		Test{
+			Expected: true,
+			Resource: core.Pod{
+				ObjectMeta: meta.ObjectMeta{
+					Namespace: "default",
+				},
+			},
+			Configuration: config.NewConfig(),
+		},
+		Test{
+			Expected: false,
+			Resource: core.Pod{
+				ObjectMeta: meta.ObjectMeta{
+					Namespace: "kube-system",
+				},
+			},
+			Configuration: config.NewConfig(),
+		},
+	}
+
+	for _, test := range tests {
+		actual := IsEligible(test.Resource, test.Configuration)
+		assert.Exactly(t, actual, test.Expected)
+	}
+}
+
 func TestGetPodSpec(t *testing.T) {
 	type Test struct {
-		Expected core.PodSpec
+		Expected *core.PodSpec
 		Resource interface{}
 	}
 
 	tests := []Test{
 		// Pod
 		Test{
-			Expected: core.PodSpec{Hostname: "test"},
-			Resource: core.Pod{Spec: core.PodSpec{Hostname: "test"}},
+			Expected: &core.PodSpec{Hostname: "test"},
+			Resource: &core.Pod{Spec: core.PodSpec{Hostname: "test"}},
 		},
 
 		// Deployment
 		Test{
-			Expected: core.PodSpec{Hostname: "test"},
-			Resource: apps.Deployment{
+			Expected: &core.PodSpec{Hostname: "test"},
+			Resource: &apps.Deployment{
 				Spec: apps.DeploymentSpec{
 					Template: core.PodTemplateSpec{
 						Spec: core.PodSpec{Hostname: "test"},
@@ -47,8 +83,8 @@ func TestGetPodSpec(t *testing.T) {
 
 		// Daemonset
 		Test{
-			Expected: core.PodSpec{Hostname: "test"},
-			Resource: apps.DaemonSet{
+			Expected: &core.PodSpec{Hostname: "test"},
+			Resource: &apps.DaemonSet{
 				Spec: apps.DaemonSetSpec{
 					Template: core.PodTemplateSpec{
 						Spec: core.PodSpec{Hostname: "test"},
@@ -59,8 +95,8 @@ func TestGetPodSpec(t *testing.T) {
 
 		// Statefulset
 		Test{
-			Expected: core.PodSpec{Hostname: "test"},
-			Resource: apps.StatefulSet{
+			Expected: &core.PodSpec{Hostname: "test"},
+			Resource: &apps.StatefulSet{
 				Spec: apps.StatefulSetSpec{
 					Template: core.PodTemplateSpec{
 						Spec: core.PodSpec{Hostname: "test"},
@@ -71,8 +107,8 @@ func TestGetPodSpec(t *testing.T) {
 
 		// Job
 		Test{
-			Expected: core.PodSpec{Hostname: "test"},
-			Resource: batch.Job{
+			Expected: &core.PodSpec{Hostname: "test"},
+			Resource: &batch.Job{
 				Spec: batch.JobSpec{
 					Template: core.PodTemplateSpec{
 						Spec: core.PodSpec{Hostname: "test"},

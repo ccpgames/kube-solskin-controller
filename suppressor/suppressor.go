@@ -9,8 +9,6 @@ import (
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"log"
-	"regexp"
 )
 
 var suppressedResourcesMetric = prometheus.NewCounter(prometheus.CounterOpts{
@@ -40,21 +38,22 @@ func (s Service) GenerateEventHandlers() []cache.ResourceEventHandlerFuncs {
 	}
 }
 
-// Start TODO
-func (s Service) Start(client kubernetes.Interface, cfg config.Config) {
-	// Save the configuration and client.
-	s.Configuration = cfg
-	s.Client = client
-
+// Init TODO
+func (s Service) Init() {
 	// Initialize the suppressor metrics.
 	prometheus.MustRegister(suppressedResourcesMetric)
+}
+
+// Start TODO
+func (s Service) Start() {
+	// do nothing
 }
 
 // Called when one of the informers detects either a new or updated kubernetes
 // resource, with the object as the input parameter.
 func (s Service) onObjectChange(obj interface{}) {
 	// Determine if the resource is eligible for suppression, if not skip it.
-	if !s.isEligible(obj) {
+	if !common.IsEligible(obj, s.Configuration) {
 		return
 	}
 
@@ -83,7 +82,7 @@ func (s Service) onObjectChange(obj interface{}) {
 // resource, with the object as the input parameter.
 func (s Service) onObjectDelete(obj interface{}) {
 	// Determine if the resource is eligible for suppression, if not skip it.
-	if !s.isEligible(obj) {
+	if !common.IsEligible(obj, s.Configuration) {
 		return
 	}
 
@@ -103,24 +102,6 @@ func (s Service) onObjectDelete(obj interface{}) {
 		dpl.Spec.Paused = false
 		s.Client.Apps().Deployments(m.Namespace).Update(dpl)
 	}
-}
-
-// Helper function to determine if the resource is eligible for suppression.
-func (s Service) isEligible(obj interface{}) bool {
-	// Grab the object's metadata.
-	m, _ := common.GetObjectMeta(obj)
-
-	// Extract the pattern from the service configuration.
-	p := s.Configuration.Get("suppressor.exclude_namespace").String("^kube-")
-
-	// Run the regexp against the namespace of the resource.
-	match, err := regexp.MatchString(p, m.Namespace)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// If we have a match, then the resource isn't eligible.
-	return !match
 }
 
 // Helper function to determine if the resource should be suppressed.

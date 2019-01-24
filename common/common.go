@@ -1,32 +1,54 @@
 package common
 
 import (
+	config "github.com/micro/go-config"
 	apps "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"
 	core "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"log"
 	"reflect"
+	"regexp"
 	"strings"
 )
 
 // GetPodSpec will extract the pod specification from any type of kubernetes
 // resource and return it.
-func GetPodSpec(obj interface{}) core.PodSpec {
+func GetPodSpec(obj interface{}) *core.PodSpec {
 	_, ktype := GetObjectMeta(obj)
 	switch ktype {
 	case "pod":
-		return obj.(core.Pod).Spec
+		return &obj.(*core.Pod).Spec
 	case "deployment":
-		return obj.(apps.Deployment).Spec.Template.Spec
+		return &obj.(*apps.Deployment).Spec.Template.Spec
 	case "daemonset":
-		return obj.(apps.DaemonSet).Spec.Template.Spec
+		return &obj.(*apps.DaemonSet).Spec.Template.Spec
 	case "statefulset":
-		return obj.(apps.StatefulSet).Spec.Template.Spec
+		return &obj.(*apps.StatefulSet).Spec.Template.Spec
 	case "job":
-		return obj.(batch.Job).Spec.Template.Spec
+		return &obj.(*batch.Job).Spec.Template.Spec
 	}
 
-	return core.PodSpec{}
+	return &core.PodSpec{}
+}
+
+// IsEligible determines whether or not the object is eligible for monitoring
+// and suppression based on the given configuration.
+func IsEligible(obj interface{}, cfg config.Config) bool {
+	// Grab the object's metadata.
+	m, _ := GetObjectMeta(obj)
+
+	// Extract the pattern from the service configuration.
+	p := cfg.Get("eligibility", "exclude_namespace").String("^kube-")
+
+	// Run the regexp against the namespace of the resource.
+	match, err := regexp.MatchString(p, m.Namespace)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// If we have a match, then the resource isn't eligible.
+	return !match
 }
 
 // PassesChecks TODO
@@ -54,7 +76,12 @@ func HasLiveness(spec core.PodSpec) bool {
 	}
 
 	for _, container := range spec.Containers {
-		h := container.LivenessProbe.Handler
+		probe := container.LivenessProbe
+		if probe == nil {
+			return false
+		}
+
+		h := probe.Handler
 		if !hasDefinedHandler(h) {
 			return false
 		}
@@ -69,7 +96,12 @@ func HasReadiness(spec core.PodSpec) bool {
 	}
 
 	for _, container := range spec.Containers {
-		h := container.ReadinessProbe.Handler
+		probe := container.ReadinessProbe
+		if probe == nil {
+			return false
+		}
+
+		h := probe.Handler
 		if !hasDefinedHandler(h) {
 			return false
 		}
