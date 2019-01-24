@@ -69,26 +69,27 @@ func (s Service) onObjectChange(obj interface{}) {
 
 	// If the resource is eligible then we have to suppress it, which will depend
 	// on the type of the resource.
+	opts := &meta.DeleteOptions{}
+	name := fmt.Sprintf("%s.%s", m.GetName(), m.GetNamespace())
+	log.Printf("[%s:%s] will be suppressed", ktype, name)
 	switch ktype {
 	case "pod":
 		pod := obj.(*core.Pod)
 
 		// To suppress a pod, we simply delete it.
-		opts := &meta.DeleteOptions{}
 		s.Client.Core().Pods(m.Namespace).Delete(pod.GetName(), opts)
-		log.Printf("suppressing pod [%s.%s]", m.GetName(), m.GetNamespace())
 	case "deployment":
 		dpl := obj.(*apps.Deployment)
 
 		// To suppress a deployment, we set the replicas to zero.
-		// if *dpl.Spec.Replicas <= 0 {
-		// 	return
-		// }
-
 		replicas := int32(0)
 		dpl.Spec.Replicas = &replicas
 		s.Client.Apps().Deployments(m.Namespace).Update(dpl)
-		log.Printf("suppressing deployment [%s.%s]", m.GetName(), m.GetNamespace())
+	case "daemonset":
+		ds := obj.(*apps.DaemonSet)
+
+		// To suppress a daemonset, we simply delete it.
+		s.Client.Apps().DaemonSets(m.Namespace).Delete(ds.GetName(), opts)
 	}
 }
 
