@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"fmt"
 	"github.com/micro/go-config"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/client-go/kubernetes"
