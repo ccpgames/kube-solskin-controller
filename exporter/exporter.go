@@ -63,6 +63,11 @@ func (s Service) Start() {
 // Called when one of the informers detects either a new or updated kubernetes
 // resource, with the object as the input parameter.
 func (s Service) onObjectChange(obj interface{}) {
+	// Determine whether or not the object is eligible for monitoring.
+	if !common.IsEligible(obj, s.Configuration) {
+		return
+	}
+
 	objectMeta, ktype := common.GetObjectMeta(obj)
 	labels := map[string]string{
 		"name":          objectMeta.GetName(),
@@ -99,6 +104,11 @@ func (s Service) onObjectChange(obj interface{}) {
 // Called when one of the informers detects a deleted kubernetes resource,
 // with the object as the input parameter.
 func (s Service) onObjectDelete(obj interface{}) {
+	// Determine whether or not the object is eligible for monitoring.
+	if !common.IsEligible(obj, s.Configuration) {
+		return
+	}
+
 	objectMeta, ktype := common.GetObjectMeta(obj)
 	labels := map[string]string{
 		"name":          objectMeta.GetName(),
