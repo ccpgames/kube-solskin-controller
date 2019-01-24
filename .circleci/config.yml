@@ -5,7 +5,7 @@ jobs:
     docker:
     - image: theyorkshiredev/golang-git
     environment:
-      GOPATH: /opt/go
+      GOPATH: /root/project
     steps:
     - checkout
     - run: mkdir -p ${GOPATH}
