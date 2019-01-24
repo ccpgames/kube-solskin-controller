@@ -6,3 +6,7 @@ workflows:
     - test:
       steps:
       - run: go test ./...
+    
+    - build:
+      steps:
+      - run: docker build -t test -f Dockerfile .
