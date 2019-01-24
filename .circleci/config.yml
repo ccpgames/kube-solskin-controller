@@ -3,12 +3,13 @@ version: 2.1
 jobs:
   test:
     docker:
-    - image: docker
+    - image: circleci/golang
+    working_directory: /go/src/github.com/celestialorb/solskin
     steps:
-    - setup_remote_docker
+    # - setup_remote_docker
     - checkout
-    - run: docker build -t test -f Dockerfile .
-    # - run: go get ./... && go test ./...
+    - run: go get -u ./ ./common ./exporter ./metrics ./suppressor
+    - run: go test ./...
 
 workflows:
   main:
