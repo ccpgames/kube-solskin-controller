@@ -3,12 +3,10 @@ version: 2.1
 jobs:
   test:
     docker:
-    - image: theyorkshiredev/golang-git
-    environment:
-      GOPATH: /root/project
+    - image: circleci/golang
+    working_directory: /go/src/github.com/celestialorb/solskin
     steps:
     - checkout
-    - run: mkdir -p ${GOPATH}
     - run: go get ./...
     - run: go test ./...
 
