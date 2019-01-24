@@ -24,11 +24,19 @@ func (s Service) GenerateEventHandlers() []cache.ResourceEventHandlerFuncs {
 
 // Start will initialize and run the metrics service.
 func (s Service) Start(client kubernetes.Interface, cfg config.Config) {
+	// Get port from configuration.
+	portCfg := fmt.Sprintf("%s.port", s.GetConfigurationSlug())
+	port := cfg.Get(portCfg).Int(8080)
+
+	// Get endpoint from configuration.
+	endpoint := fmt.Sprintf("%s.endpoint", s.GetConfigurationSlug())
+	endpoint = cfg.Get(endpoint).String("metrics")
+
 	// TODO: handle errors
 	server := &http.Server{
-		Addr: ":8080",
+		Addr: fmt.Sprintf(":%d", port),
 	}
-	http.Handle("/metrics", promhttp.Handler())
+	http.Handle(fmt.Sprintf("/%s", endpoint), promhttp.Handler())
 	log.Println("starting metric exporter server")
 	go server.ListenAndServe()
 
