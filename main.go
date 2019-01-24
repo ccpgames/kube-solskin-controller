@@ -19,6 +19,13 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+// SolskinService ...
+type SolskinService interface {
+	GenerateEventHandlers() []cache.ResourceEventHandlerFuncs
+	GetConfigurationSlug() string
+	Start(client kubernetes.Interface, cfg config.Config)
+}
+
 func main() {
 	cfg := config.NewConfig()
 
@@ -46,6 +53,24 @@ func main() {
 		suppressor.Service{},
 	}
 
+	s, err := StartServices(services, client, cfg)
+	if err != nil {
+		log.Fatalf("error starting solskin services: %s", err)
+	}
+	defer close(s)
+
+	// Wait for kill signal.
+	<-stopper
+	log.Println("RECEIVED KILL SIGNAL")
+}
+
+// StartServices will initialize and kick off all given services with the
+// proper set of informers.
+func StartServices(
+	services []SolskinService,
+	client kubernetes.Interface,
+	cfg config.Config,
+) (chan struct{}, error) {
 	// Create our informers
 	factory := informers.NewSharedInformerFactory(client, 0)
 	informers := []cache.SharedIndexInformer{
@@ -78,7 +103,6 @@ func main() {
 	for _, informer := range informers {
 		go informer.Run(s)
 	}
-	defer close(s)
 
 	// Wait until our informer has synced.
 	log.Println("waiting for informers to sync")
@@ -89,14 +113,5 @@ func main() {
 	}
 	log.Println("informers have synced")
 
-	// Wait for kill signal.
-	<-stopper
-	log.Println("RECEIVED KILL SIGNAL")
-}
-
-// SolskinService ...
-type SolskinService interface {
-	GenerateEventHandlers() []cache.ResourceEventHandlerFuncs
-	GetConfigurationSlug() string
-	Start(client kubernetes.Interface, cfg config.Config)
+	return s, nil
 }
