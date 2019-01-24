@@ -1,12 +1,13 @@
 version: 2.1
 
+jobs:
+  test:
+    docker:
+    - image: golang:alpine
+    steps:
+    - run: go test ./...
+
 workflows:
   main:
     jobs:
-    - test:
-      steps:
-      - run: go test ./...
-    
-    - build:
-      steps:
-      - run: docker build -t test -f Dockerfile .
+    - test
