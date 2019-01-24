@@ -19,7 +19,7 @@ var categories = []string{
 	"readiness",
 	"limits",
 }
-var metrics = make(map[string]*prometheus.GaugeVec, len(categories))
+var promMetrics = make(map[string]*prometheus.GaugeVec, len(categories))
 
 // Service TODO
 type Service struct{}
@@ -44,19 +44,17 @@ func (s Service) GenerateEventHandlers() []cache.ResourceEventHandlerFuncs {
 func (s Service) Start(client kubernetes.Interface, cfg config.Config) {
 	// Initialize our metrics.
 	for _, category := range categories {
-		metrics[category] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		promMetrics[category] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: fmt.Sprintf("solskin_%s_resources", category),
 			Help: fmt.Sprintf("proof of %s", category),
 		}, []string{"name", "namespace", "resource_type"})
-		prometheus.MustRegister(metrics[category])
+		prometheus.MustRegister(promMetrics[category])
 	}
 }
 
 // Called when one of the informers detects either a new or updated kubernetes
 // resource, with the object as the input parameter.
 func (s Service) onObjectChange(obj interface{}) {
-	log.Println("EXPORTER [onObjectChange]")
-
 	objectMeta, ktype := common.GetObjectMeta(obj)
 	labels := map[string]string{
 		"name":          objectMeta.GetName(),
@@ -64,22 +62,35 @@ func (s Service) onObjectChange(obj interface{}) {
 		"resource_type": ktype,
 	}
 
-	// Create or retrieve our metric.
-	gauge, err := metrics["observability"].GetMetricWith(labels)
-	if err != nil {
-		log.Fatal(err)
-	}
+	// Pull out the podspec from the type of object.
+	spec := common.GetPodSpec(obj)
 
-	// Set our metric.
-	observable := common.HasObservability(objectMeta)
-	gauge.Set(common.BooleanToFloat64(observable))
+	for _, category := range categories {
+		// Create or retrieve our metric.
+		gauge, err := promMetrics[category].GetMetricWith(labels)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// Set our metric.
+		value := false
+		switch category {
+		case "observability":
+			value = common.HasObservability(objectMeta)
+		case "liveness":
+			value = common.HasLiveness(spec)
+		case "readiness":
+			value = common.HasReadiness(spec)
+		case "limits":
+			value = common.HasLimits(spec)
+		}
+		gauge.Set(common.BooleanToFloat64(value))
+	}
 }
 
 // Called when one of the informers detects a deleted kubernetes resource,
 // with the object as the input parameter.
 func (s Service) onObjectDelete(obj interface{}) {
-	log.Println("EXPORTER [onObjectDelete]")
-
 	objectMeta, ktype := common.GetObjectMeta(obj)
 	labels := map[string]string{
 		"name":          objectMeta.GetName(),
@@ -87,7 +98,7 @@ func (s Service) onObjectDelete(obj interface{}) {
 		"resource_type": ktype,
 	}
 
-	for _, metric := range metrics {
+	for _, metric := range promMetrics {
 		metric.Delete(labels)
 	}
 }

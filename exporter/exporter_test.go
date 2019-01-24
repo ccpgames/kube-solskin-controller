@@ -1,20 +1,18 @@
 package exporter
 
 import (
-	// "log"
+	"github.com/celestialorb/solskin/metrics"
+	"github.com/kubernetes/client-go/kubernetes/fake"
+	"github.com/micro/go-config"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/common/expfmt"
+	core "k8s.io/api/core/v1"
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"testing"
 	"time"
-
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/prometheus/common/expfmt"
-	// "github.com/stretchr/testify/assert"
-
-	core "k8s.io/api/core/v1"
-	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
 )
 
 // MetricsTest ...
@@ -53,12 +51,15 @@ func TestPodObservability(t *testing.T) {
 	}
 
 	// Start the exporter service.
-	// startExporter(client)
+	cfg := config.NewConfig()
+	metrics.Service{}.Start(client, cfg)
+	Service{}.Start(client, cfg)
+	time.Sleep(10 * time.Second)
 
 	// Define our expected metrics.
 	tests := []MetricsTest{
 		MetricsTest{
-			Expected: 0,
+			Expected: 0.0,
 			Name:     "solskin_observability_resources",
 			Labels: map[string]string{
 				"name":          "without-obs",
@@ -67,7 +68,7 @@ func TestPodObservability(t *testing.T) {
 			},
 		},
 		MetricsTest{
-			Expected: 0,
+			Expected: 1.0,
 			Name:     "solskin_observability_resources",
 			Labels: map[string]string{
 				"name":          "with-false-obs",
@@ -76,7 +77,7 @@ func TestPodObservability(t *testing.T) {
 			},
 		},
 		MetricsTest{
-			Expected: 0,
+			Expected: 1.0,
 			Name:     "solskin_observability_resources",
 			Labels: map[string]string{
 				"name":          "with-true-obs",
@@ -89,22 +90,6 @@ func TestPodObservability(t *testing.T) {
 	// Check our expected metrics against the exporter.
 	checkMetrics(t, tests)
 }
-
-// TODO: moar tests
-// Test Matrix is as follows:
-// (two dimensions: resource_type, metric_type)
-//	resource types:
-//		- pods
-//		- replica sets
-//		- deployments
-//		- daemon sets
-//		- jobs
-//
-//	metric types:
-//		- observability
-//		- liveness
-//		- readiness
-//		- resource limits
 
 // A helper function to start the prometheus service, send a request, and check
 // the value of a specific metric.
