@@ -6,6 +6,7 @@ import (
 	"github.com/micro/go-config"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/expfmt"
+	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
@@ -22,7 +23,7 @@ type MetricsTest struct {
 	Labels   map[string]string
 }
 
-func TestPodObservability(t *testing.T) {
+func TestObservability(t *testing.T) {
 	// Start the exporter service.
 	cfg := config.NewConfig()
 	client := fake.NewSimpleClientset()
@@ -55,8 +56,28 @@ func TestPodObservability(t *testing.T) {
 		}},
 	}
 
-	for _, object := range pods {
-		service.onObjectChange(*object)
+	dpls := []*apps.Deployment{
+		&apps.Deployment{
+			Spec: apps.DeploymentSpec{
+				Template: core.PodTemplateSpec{
+					ObjectMeta: meta.ObjectMeta{
+						Name:      "with-true-obs",
+						Namespace: "default",
+						Annotations: map[string]string{
+							"prometheus.io/scrape": "true",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, pod := range pods {
+		service.onObjectChange(*pod)
+	}
+
+	for _, dpl := range dpls {
+		service.onObjectChange(*dpl)
 	}
 
 	// Define our expected metrics.
@@ -86,6 +107,15 @@ func TestPodObservability(t *testing.T) {
 				"name":          "with-true-obs",
 				"namespace":     "default",
 				"resource_type": "pod",
+			},
+		},
+		MetricsTest{
+			Expected: 1.0,
+			Name:     "solskin_observability_resources",
+			Labels: map[string]string{
+				"name":          "with-true-obs",
+				"namespace":     "default",
+				"resource_type": "deployment",
 			},
 		},
 	}
