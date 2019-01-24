@@ -11,6 +11,8 @@ jobs:
     - run: go test ./...
   
   build:
+    branches:
+      only: master
     docker:
     - image: docker
     steps:
