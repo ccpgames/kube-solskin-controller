@@ -16,10 +16,13 @@ jobs:
     steps:
     - setup_remote_docker
     - checkout
-    - run: docker build -t test -f Dockerfile .
+    - run: docker build -t celestialorb/solskin -f Dockerfile .
+    - run: docker login -u ${DOCKER_USERNAME} -p ${DOCKER_PASSWORD}
+    - run: docker push celestialorb/solskin
 
 workflows:
   main:
     jobs:
     - test
-    - build
+    - build:
+        context: celestialorb
