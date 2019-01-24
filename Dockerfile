@@ -5,7 +5,7 @@ RUN apk add --update git
 ARG PROJECT="github.com/celestialorb/solskin"
 RUN mkdir -p /go/src/${PROJECT}
 WORKDIR /go/src/${PROJECT}
-COPY src/ ./
+COPY ./ ./
 RUN go get ./...
 RUN GOOS=linux go build -o /app ./
 
