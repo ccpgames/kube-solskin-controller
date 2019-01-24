@@ -1,6 +1,7 @@
 package common
 
 import (
+	"fmt"
 	config "github.com/micro/go-config"
 	apps "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"
@@ -11,6 +12,25 @@ import (
 	"regexp"
 	"strings"
 )
+
+// GetServiceAnnotation retrieves the annotations made by this service.
+func GetServiceAnnotation(m meta.ObjectMeta, a string) string {
+	label := fmt.Sprintf("celestialorb/solskin.%s", a)
+	return m.Annotations[label]
+}
+
+// SetServiceAnnotation sets the annotations made by this service.
+func SetServiceAnnotation(m meta.ObjectMeta, a string, b string) meta.ObjectMeta {
+	label := fmt.Sprintf("celestialorb/solskin.%s", a)
+	if m.Annotations == nil {
+		m.Annotations = map[string]string{
+			label: b,
+		}
+	}
+
+	m.Annotations[label] = b
+	return m
+}
 
 // GetPodSpec will extract the pod specification from any type of kubernetes
 // resource and return it.
