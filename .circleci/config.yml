@@ -5,6 +5,7 @@ jobs:
     docker:
     - image: golang:alpine
     steps:
+    - checkout
     - run: go test ./...
 
 workflows:
