@@ -64,7 +64,6 @@ func main() {
 
 	// Wait for kill signal.
 	<-stopper
-	log.Println("RECEIVED KILL SIGNAL")
 }
 
 // StartServices will initialize and kick off all given services with the
