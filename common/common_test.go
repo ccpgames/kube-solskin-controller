@@ -2,6 +2,8 @@ package common
 
 import (
 	"github.com/stretchr/testify/assert"
+	apps "k8s.io/api/apps/v1"
+	batch "k8s.io/api/batch/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,6 +18,74 @@ type ObjectMetaTest struct {
 type SpecTest struct {
 	Expected bool
 	Spec     core.PodSpec
+}
+
+func TestGetPodSpec(t *testing.T) {
+	type Test struct {
+		Expected core.PodSpec
+		Resource interface{}
+	}
+
+	tests := []Test{
+		// Pod
+		Test{
+			Expected: core.PodSpec{Hostname: "test"},
+			Resource: core.Pod{Spec: core.PodSpec{Hostname: "test"}},
+		},
+
+		// Deployment
+		Test{
+			Expected: core.PodSpec{Hostname: "test"},
+			Resource: apps.Deployment{
+				Spec: apps.DeploymentSpec{
+					Template: core.PodTemplateSpec{
+						Spec: core.PodSpec{Hostname: "test"},
+					},
+				},
+			},
+		},
+
+		// Daemonset
+		Test{
+			Expected: core.PodSpec{Hostname: "test"},
+			Resource: apps.DaemonSet{
+				Spec: apps.DaemonSetSpec{
+					Template: core.PodTemplateSpec{
+						Spec: core.PodSpec{Hostname: "test"},
+					},
+				},
+			},
+		},
+
+		// Statefulset
+		Test{
+			Expected: core.PodSpec{Hostname: "test"},
+			Resource: apps.StatefulSet{
+				Spec: apps.StatefulSetSpec{
+					Template: core.PodTemplateSpec{
+						Spec: core.PodSpec{Hostname: "test"},
+					},
+				},
+			},
+		},
+
+		// Job
+		Test{
+			Expected: core.PodSpec{Hostname: "test"},
+			Resource: batch.Job{
+				Spec: batch.JobSpec{
+					Template: core.PodTemplateSpec{
+						Spec: core.PodSpec{Hostname: "test"},
+					},
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		r := GetPodSpec(test.Resource)
+		assert.Exactly(t, test.Expected, r)
+	}
 }
 
 func TestPassesChecks(t *testing.T) {

@@ -1,11 +1,33 @@
 package common
 
 import (
+	apps "k8s.io/api/apps/v1"
+	batch "k8s.io/api/batch/v1"
 	core "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
 	"strings"
 )
+
+// GetPodSpec will extract the pod specification from any type of kubernetes
+// resource and return it.
+func GetPodSpec(obj interface{}) core.PodSpec {
+	_, ktype := GetObjectMeta(obj)
+	switch ktype {
+	case "pod":
+		return obj.(core.Pod).Spec
+	case "deployment":
+		return obj.(apps.Deployment).Spec.Template.Spec
+	case "daemonset":
+		return obj.(apps.DaemonSet).Spec.Template.Spec
+	case "statefulset":
+		return obj.(apps.StatefulSet).Spec.Template.Spec
+	case "job":
+		return obj.(batch.Job).Spec.Template.Spec
+	}
+
+	return core.PodSpec{}
+}
 
 // PassesChecks TODO
 func PassesChecks(checks []bool) bool {
