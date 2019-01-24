@@ -23,7 +23,8 @@ import (
 type SolskinService interface {
 	GenerateEventHandlers() []cache.ResourceEventHandlerFuncs
 	GetConfigurationSlug() string
-	Start(client kubernetes.Interface, cfg config.Config)
+	Init()
+	Start()
 }
 
 func main() {
@@ -48,9 +49,9 @@ func main() {
 
 	// Create our services.
 	services := []SolskinService{
-		exporter.Service{},
-		metrics.Service{},
-		suppressor.Service{},
+		exporter.Service{Client: client, Configuration: cfg},
+		suppressor.Service{Client: client, Configuration: cfg},
+		metrics.Service{Client: client, Configuration: cfg},
 	}
 
 	s, err := StartServices(services, client, cfg)
@@ -71,6 +72,11 @@ func StartServices(
 	client kubernetes.Interface,
 	cfg config.Config,
 ) (chan struct{}, error) {
+	// Initialize services here.
+	for _, service := range services {
+		service.Init()
+	}
+
 	// Create our informers
 	factory := informers.NewSharedInformerFactory(client, 0)
 	informers := []cache.SharedIndexInformer{
@@ -95,7 +101,7 @@ func StartServices(
 
 	// Spool up services here.
 	for _, service := range services {
-		service.Start(client, cfg)
+		service.Start()
 	}
 
 	// Start our informers.

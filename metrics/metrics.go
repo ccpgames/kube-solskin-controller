@@ -11,7 +11,10 @@ import (
 )
 
 // Service TODO
-type Service struct{}
+type Service struct {
+	Client        kubernetes.Interface
+	Configuration config.Config
+}
 
 // GetConfigurationSlug TODO
 func (s Service) GetConfigurationSlug() string {
@@ -23,15 +26,21 @@ func (s Service) GenerateEventHandlers() []cache.ResourceEventHandlerFuncs {
 	return []cache.ResourceEventHandlerFuncs{}
 }
 
+// Init TODO
+func (s Service) Init() {
+}
+
 // Start will initialize and run the metrics service.
-func (s Service) Start(client kubernetes.Interface, cfg config.Config) {
+func (s Service) Start() {
+	// cfg := *s.Configuration
+	cslug := s.GetConfigurationSlug()
 	// Get port from configuration.
-	portCfg := fmt.Sprintf("%s.port", s.GetConfigurationSlug())
-	port := cfg.Get(portCfg).Int(8080)
+	// portCfg := fmt.Sprintf("%s__port", s.GetConfigurationSlug())
+	port := s.Configuration.Get(cslug, "port").Int(8080)
 
 	// Get endpoint from configuration.
-	endpoint := fmt.Sprintf("%s.endpoint", s.GetConfigurationSlug())
-	endpoint = cfg.Get(endpoint).String("metrics")
+	// endpoint := fmt.Sprintf("%s__endpoint", s.GetConfigurationSlug())
+	endpoint := s.Configuration.Get(cslug, "endpoint").String("metrics")
 
 	// TODO: handle errors
 	server := &http.Server{

@@ -27,12 +27,20 @@ func TestObservability(t *testing.T) {
 	// Start the exporter service.
 	cfg := config.NewConfig()
 	client := fake.NewSimpleClientset()
-	service := Service{}
-	service.Start(client, cfg)
+	service := Service{
+		Client:        client,
+		Configuration: cfg,
+	}
+	service.Init()
 
 	// Start the metrics server, since this is the only way to get the value of
 	// the metrics apparently...
-	metrics.Service{}.Start(client, cfg)
+	mservice := metrics.Service{
+		Client:        client,
+		Configuration: cfg,
+	}
+	mservice.Init()
+	mservice.Start()
 
 	// do whatever here with the fake client
 	pods := []*core.Pod{
@@ -73,11 +81,11 @@ func TestObservability(t *testing.T) {
 	}
 
 	for _, pod := range pods {
-		service.onObjectChange(*pod)
+		service.onObjectChange(pod)
 	}
 
 	for _, dpl := range dpls {
-		service.onObjectChange(*dpl)
+		service.onObjectChange(dpl)
 	}
 
 	// Define our expected metrics.

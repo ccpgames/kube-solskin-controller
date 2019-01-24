@@ -22,7 +22,10 @@ var categories = []string{
 var promMetrics = make(map[string]*prometheus.GaugeVec, len(categories))
 
 // Service TODO
-type Service struct{}
+type Service struct {
+	Client        kubernetes.Interface
+	Configuration config.Config
+}
 
 // GetConfigurationSlug TODO
 func (s Service) GetConfigurationSlug() string {
@@ -40,8 +43,8 @@ func (s Service) GenerateEventHandlers() []cache.ResourceEventHandlerFuncs {
 	}
 }
 
-// Start will initialize and run the metrics service.
-func (s Service) Start(client kubernetes.Interface, cfg config.Config) {
+// Init will initialize and run the metrics service.
+func (s Service) Init() {
 	// Initialize our metrics.
 	for _, category := range categories {
 		promMetrics[category] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -50,6 +53,11 @@ func (s Service) Start(client kubernetes.Interface, cfg config.Config) {
 		}, []string{"name", "namespace", "resource_type"})
 		prometheus.MustRegister(promMetrics[category])
 	}
+}
+
+// Start will initialize and run the metrics service.
+func (s Service) Start() {
+	// do nothing
 }
 
 // Called when one of the informers detects either a new or updated kubernetes
@@ -78,11 +86,11 @@ func (s Service) onObjectChange(obj interface{}) {
 		case "observability":
 			value = common.HasObservability(objectMeta)
 		case "liveness":
-			value = common.HasLiveness(spec)
+			value = common.HasLiveness(*spec)
 		case "readiness":
-			value = common.HasReadiness(spec)
+			value = common.HasReadiness(*spec)
 		case "limits":
-			value = common.HasLimits(spec)
+			value = common.HasLimits(*spec)
 		}
 		gauge.Set(common.BooleanToFloat64(value))
 	}
