@@ -17,6 +17,7 @@ import (
 	config "github.com/micro/go-config"
 
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -29,20 +30,33 @@ type SolskinService interface {
 }
 
 func main() {
+	// Load up our configuration from the environment.
 	cfg := config.NewConfig()
-	config.Load(env.NewSource(env.WithStrippedPrefix("SOLSKIN")))
+	cfg.Load(env.NewSource(env.WithStrippedPrefix("SOLSKIN")))
 
-	kubecfg := fmt.Sprintf("%s/.kube/config", os.Getenv("HOME"))
+	// Try to pull the in-cluster configuration first.
+	log.Println("attempting to pull in-cluster kube configuration")
+	kubecfg, err := rest.InClusterConfig()
+	if err != nil {
+		log.Println("service running outside of kube cluster")
+		log.Println("attempting to pull kube cluster info from local filesystem")
 
-	kubeconfig := cfg.Get("kubeconfig").String(kubecfg)
-	kcfg, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+		// If we're not in a cluster then pull configuration from local filesystem.
+		kubeFile := fmt.Sprintf("%s/.kube/config", os.Getenv("HOME"))
+		kubeconfig := cfg.Get("cluster", "kubecfg").String(kubeFile)
+
+		kubecfg, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	log.Println("kube configuration determined")
+
+	client, err := kubernetes.NewForConfig(kubecfg)
 	if err != nil {
 		log.Fatal(err)
 	}
-	client, err := kubernetes.NewForConfig(kcfg)
-	if err != nil {
-		log.Fatal(err)
-	}
+	log.Println("kube configuration is valid")
 
 	stopper := make(chan os.Signal)
 
