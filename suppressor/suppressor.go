@@ -1,6 +1,7 @@
 package suppressor
 
 import (
+	"fmt"
 	"github.com/celestialorb/solskin/common"
 	"github.com/micro/go-config"
 	"github.com/prometheus/client_golang/prometheus"
@@ -9,6 +10,8 @@ import (
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"log"
+	"strconv"
 )
 
 var suppressedResourcesMetric = prometheus.NewCounter(prometheus.CounterOpts{
@@ -49,19 +52,7 @@ func (s Service) Start() {
 	// do nothing
 }
 
-// Called when one of the informers detects either a new or updated kubernetes
-// resource, with the object as the input parameter.
-func (s Service) onObjectChange(obj interface{}) {
-	// Determine if the resource is eligible for suppression, if not skip it.
-	if !common.IsEligible(obj, s.Configuration) {
-		return
-	}
-
-	// Determine if the resource should be suppressed.
-	if !s.toSuppress(obj) {
-		return
-	}
-
+func (s Service) onSuppress(obj interface{}) {
 	// Get the metadata of the resource.
 	m, ktype := common.GetObjectMeta(obj)
 
@@ -71,11 +62,99 @@ func (s Service) onObjectChange(obj interface{}) {
 	case "pod":
 		pod := obj.(*core.Pod)
 		s.Client.Core().Pods(m.Namespace).Delete(pod.GetName(), &meta.DeleteOptions{})
+		log.Printf("suppressing pod [%s.%s]", m.GetName(), m.GetNamespace())
 	case "deployment":
 		dpl := obj.(*apps.Deployment)
-		dpl.Spec.Paused = true
+
+		if *dpl.Spec.Replicas <= 0 {
+			return
+		}
+
+		// Store the desired replicas in an annotation.
+		replicasStr := fmt.Sprintf("%d", *dpl.Spec.Replicas)
+		dpl.ObjectMeta = common.SetServiceAnnotation(m, "replicas", replicasStr)
+
+		replicas := int32(0)
+		dpl.Spec.Replicas = &replicas
 		s.Client.Apps().Deployments(m.Namespace).Update(dpl)
+		log.Printf("suppressing deployment [%s.%s]", m.GetName(), m.GetNamespace())
 	}
+}
+
+func (s Service) onUnsuppress(obj interface{}) {
+	// Get the metadata of the resource.
+	m, ktype := common.GetObjectMeta(obj)
+
+	// If the resource is eligible then we have to suppress it, which will depend
+	// on the type of the resource.
+	switch ktype {
+	case "deployment":
+		dpl := obj.(*apps.Deployment)
+
+		// Retrieve the desired replicas.
+		replicasStr := common.GetServiceAnnotation(m, "replicas")
+		replicasInt, err := strconv.ParseInt(replicasStr, 10, 32)
+		if err != nil {
+			log.Println("could not parse replica count")
+			return
+		}
+		replicas := int32(replicasInt)
+
+		// Check the replicas against the deployment spec, if they differ AND the
+		// deployment spec is positive then the deployment spec wins.
+		if (*dpl.Spec.Replicas > 0) && (replicas != *dpl.Spec.Replicas) {
+			replicas = *dpl.Spec.Replicas
+		}
+
+		dpl.Spec.Replicas = &replicas
+		s.Client.Apps().Deployments(m.Namespace).Update(dpl)
+		log.Printf("suppressing deployment [%s.%s]", m.GetName(), m.GetNamespace())
+	}
+}
+
+// Called when one of the informers detects either a new or updated kubernetes
+// resource, with the object as the input parameter.
+func (s Service) onObjectChange(obj interface{}) {
+	// Determine if the resource is eligible for suppression, if not skip it.
+	if !common.IsEligible(obj, s.Configuration) {
+		return
+	}
+
+	// Suppress or unsuppress the resource.
+	if s.toSuppress(obj) {
+		s.onSuppress(obj)
+	} else {
+		s.onUnsuppress(obj)
+	}
+
+	// // Determine if the resource should be suppressed.
+	// if !s.toSuppress(obj) {
+	// 	return
+	// }
+
+	// // Get the metadata of the resource.
+	// m, ktype := common.GetObjectMeta(obj)
+
+	// // If the resource is eligible then we have to suppress it, which will depend
+	// // on the type of the resource.
+	// switch ktype {
+	// case "pod":
+	// 	pod := obj.(*core.Pod)
+	// 	s.Client.Core().Pods(m.Namespace).Delete(pod.GetName(), &meta.DeleteOptions{})
+	// 	log.Printf("suppressing pod [%s.%s]", m.GetName(), m.GetNamespace())
+	// case "deployment":
+	// 	dpl := obj.(*apps.Deployment)
+
+	// 	// Store the desired replicas in an annotation.
+	// 	dpl.ObjectMeta.Annotations["celestialorb/solskin.replicas"] = fmt.Sprintf("%d", dpl.Spec.Replicas)
+
+	// 	replicas := int32(0)
+
+	// 	dpl.Spec.Paused = true
+	// 	dpl.Spec.Replicas = &replicas
+	// 	s.Client.Apps().Deployments(m.Namespace).Update(dpl)
+	// 	log.Printf("suppressing deployment [%s.%s]", m.GetName(), m.GetNamespace())
+	// }
 }
 
 // Called when one of the informers detects either a new or updated kubernetes
