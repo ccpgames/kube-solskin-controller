@@ -10,49 +10,50 @@ import (
 	"net/http"
 )
 
-// Service TODO
+// Service is the base service for the metrics service.
 type Service struct {
 	Client        kubernetes.Interface
 	Configuration config.Config
 }
 
-// GetConfigurationSlug TODO
+// GetConfigurationSlug returns the slug used for the configuration section.
 func (s Service) GetConfigurationSlug() string {
 	return "metrics"
 }
 
-// GenerateEventHandlers TODO
+// GenerateEventHandlers returns all event handlers used by this service.
 func (s Service) GenerateEventHandlers() []cache.ResourceEventHandlerFuncs {
 	return []cache.ResourceEventHandlerFuncs{}
 }
 
-// Init TODO
+// Init doesn't need to do anything for this service.
 func (s Service) Init() {
+	// do nothing
 }
 
-// Start will initialize and run the metrics service.
+// Start will run the metrics http service.
 func (s Service) Start() {
-	// cfg := *s.Configuration
+	// Retrieve the configuration slug for this service.
 	cslug := s.GetConfigurationSlug()
+
 	// Get port from configuration.
-	// portCfg := fmt.Sprintf("%s__port", s.GetConfigurationSlug())
 	port := s.Configuration.Get(cslug, "port").Int(8080)
 
 	// Get endpoint from configuration.
-	// endpoint := fmt.Sprintf("%s__endpoint", s.GetConfigurationSlug())
 	endpoint := s.Configuration.Get(cslug, "endpoint").String("metrics")
 
-	// TODO: handle errors
+	// Create our server.
+	log.Printf("attempting to start server on :%d/%s", port, endpoint)
 	server := &http.Server{
 		Addr: fmt.Sprintf(":%d", port),
 	}
 	http.Handle(fmt.Sprintf("/%s", endpoint), promhttp.Handler())
+
+	// Start the metrics server.
 	log.Println("starting metric exporter server")
-	go server.ListenAndServe()
-
-	// ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	// defer cancel()
-
-	// // Stop the http server. TODO: handle errors
-	// server.Shutdown(ctx)
+	go func() {
+		if err := server.ListenAndServe(); err != http.ErrServerClosed {
+			log.Fatalf("ListenAndServe(): %s", err)
+		}
+	}()
 }
