@@ -21,7 +21,7 @@ var categories = []string{
 }
 var promMetrics = make(map[string]*prometheus.GaugeVec, len(categories))
 
-// Service is the base service for the suppressor service.
+// Service is the base service for the exporter service.
 type Service struct {
 	Client        kubernetes.Interface
 	Configuration config.Config
