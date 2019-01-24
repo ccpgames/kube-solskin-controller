@@ -11,7 +11,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"log"
-	"strconv"
 )
 
 var suppressedResourcesMetric = prometheus.NewCounter(prometheus.CounterOpts{
@@ -52,66 +51,6 @@ func (s Service) Start() {
 	// do nothing
 }
 
-func (s Service) onSuppress(obj interface{}) {
-	// Get the metadata of the resource.
-	m, ktype := common.GetObjectMeta(obj)
-
-	// If the resource is eligible then we have to suppress it, which will depend
-	// on the type of the resource.
-	switch ktype {
-	case "pod":
-		pod := obj.(*core.Pod)
-		s.Client.Core().Pods(m.Namespace).Delete(pod.GetName(), &meta.DeleteOptions{})
-		log.Printf("suppressing pod [%s.%s]", m.GetName(), m.GetNamespace())
-	case "deployment":
-		dpl := obj.(*apps.Deployment)
-
-		if *dpl.Spec.Replicas <= 0 {
-			return
-		}
-
-		// Store the desired replicas in an annotation.
-		replicasStr := fmt.Sprintf("%d", *dpl.Spec.Replicas)
-		dpl.ObjectMeta = common.SetServiceAnnotation(m, "replicas", replicasStr)
-
-		replicas := int32(0)
-		dpl.Spec.Replicas = &replicas
-		s.Client.Apps().Deployments(m.Namespace).Update(dpl)
-		log.Printf("suppressing deployment [%s.%s]", m.GetName(), m.GetNamespace())
-	}
-}
-
-func (s Service) onUnsuppress(obj interface{}) {
-	// Get the metadata of the resource.
-	m, ktype := common.GetObjectMeta(obj)
-
-	// If the resource is eligible then we have to suppress it, which will depend
-	// on the type of the resource.
-	switch ktype {
-	case "deployment":
-		dpl := obj.(*apps.Deployment)
-
-		// Retrieve the desired replicas.
-		replicasStr := common.GetServiceAnnotation(m, "replicas")
-		replicasInt, err := strconv.ParseInt(replicasStr, 10, 32)
-		if err != nil {
-			log.Println("could not parse replica count")
-			return
-		}
-		replicas := int32(replicasInt)
-
-		// Check the replicas against the deployment spec, if they differ AND the
-		// deployment spec is positive then the deployment spec wins.
-		if (*dpl.Spec.Replicas > 0) && (replicas != *dpl.Spec.Replicas) {
-			replicas = *dpl.Spec.Replicas
-		}
-
-		dpl.Spec.Replicas = &replicas
-		s.Client.Apps().Deployments(m.Namespace).Update(dpl)
-		log.Printf("suppressing deployment [%s.%s]", m.GetName(), m.GetNamespace())
-	}
-}
-
 // Called when one of the informers detects either a new or updated kubernetes
 // resource, with the object as the input parameter.
 func (s Service) onObjectChange(obj interface{}) {
@@ -120,41 +59,37 @@ func (s Service) onObjectChange(obj interface{}) {
 		return
 	}
 
-	// Suppress or unsuppress the resource.
-	if s.toSuppress(obj) {
-		s.onSuppress(obj)
-	} else {
-		s.onUnsuppress(obj)
+	// If we don't need to suppress to object, simply return.
+	if !s.toSuppress(obj) {
+		return
 	}
 
-	// // Determine if the resource should be suppressed.
-	// if !s.toSuppress(obj) {
-	// 	return
-	// }
+	// Get the metadata of the resource.
+	m, ktype := common.GetObjectMeta(obj)
 
-	// // Get the metadata of the resource.
-	// m, ktype := common.GetObjectMeta(obj)
+	// If the resource is eligible then we have to suppress it, which will depend
+	// on the type of the resource.
+	switch ktype {
+	case "pod":
+		pod := obj.(*core.Pod)
 
-	// // If the resource is eligible then we have to suppress it, which will depend
-	// // on the type of the resource.
-	// switch ktype {
-	// case "pod":
-	// 	pod := obj.(*core.Pod)
-	// 	s.Client.Core().Pods(m.Namespace).Delete(pod.GetName(), &meta.DeleteOptions{})
-	// 	log.Printf("suppressing pod [%s.%s]", m.GetName(), m.GetNamespace())
-	// case "deployment":
-	// 	dpl := obj.(*apps.Deployment)
+		// To suppress a pod, we simply delete it.
+		opts := &meta.DeleteOptions{}
+		s.Client.Core().Pods(m.Namespace).Delete(pod.GetName(), opts)
+		log.Printf("suppressing pod [%s.%s]", m.GetName(), m.GetNamespace())
+	case "deployment":
+		dpl := obj.(*apps.Deployment)
 
-	// 	// Store the desired replicas in an annotation.
-	// 	dpl.ObjectMeta.Annotations["celestialorb/solskin.replicas"] = fmt.Sprintf("%d", dpl.Spec.Replicas)
+		// To suppress a deployment, we set the replicas to zero.
+		// if *dpl.Spec.Replicas <= 0 {
+		// 	return
+		// }
 
-	// 	replicas := int32(0)
-
-	// 	dpl.Spec.Paused = true
-	// 	dpl.Spec.Replicas = &replicas
-	// 	s.Client.Apps().Deployments(m.Namespace).Update(dpl)
-	// 	log.Printf("suppressing deployment [%s.%s]", m.GetName(), m.GetNamespace())
-	// }
+		replicas := int32(0)
+		dpl.Spec.Replicas = &replicas
+		s.Client.Apps().Deployments(m.Namespace).Update(dpl)
+		log.Printf("suppressing deployment [%s.%s]", m.GetName(), m.GetNamespace())
+	}
 }
 
 // Called when one of the informers detects either a new or updated kubernetes
@@ -201,27 +136,38 @@ func (s Service) toSuppress(obj interface{}) bool {
 
 // Helper function to determine if the pod should be suppressed.
 func (s Service) toSuppressPod(pod *core.Pod) bool {
-	return toSuppress(pod.ObjectMeta, pod.Spec)
+	return toSuppress(pod, pod.ObjectMeta, pod.Spec)
 }
 
 // Helper function to determine if the deployment should be suppressed.
 func (s Service) toSuppressDeployment(dpl *apps.Deployment) bool {
-	return toSuppress(dpl.Spec.Template.ObjectMeta, dpl.Spec.Template.Spec)
+	return toSuppress(dpl, dpl.Spec.Template.ObjectMeta, dpl.Spec.Template.Spec)
 }
 
 // Helper function to determine if the daemonset should be suppressed.
 func (s Service) toSuppressDaemonSet(ds *apps.DaemonSet) bool {
-	return toSuppress(ds.Spec.Template.ObjectMeta, ds.Spec.Template.Spec)
+	return toSuppress(ds, ds.Spec.Template.ObjectMeta, ds.Spec.Template.Spec)
 }
 
 // Helper function to determine if a resource meets suppression.
-func toSuppress(m meta.ObjectMeta, spec core.PodSpec) bool {
-	checks := []bool{
-		common.HasObservability(m),
-		common.HasLiveness(spec),
-		common.HasReadiness(spec),
-		common.HasLimits(spec),
+func toSuppress(obj interface{}, m meta.ObjectMeta, spec core.PodSpec) bool {
+	om, ktype := common.GetObjectMeta(obj)
+
+	checks := map[string]bool{
+		"observability": common.HasObservability(m),
+		"liveness":      common.HasLiveness(spec),
+		"readiness":     common.HasReadiness(spec),
+		"limits":        common.HasLimits(spec),
 	}
 
-	return !common.PassesChecks(checks)
+	values := []bool{}
+	name := fmt.Sprintf("%s:%s.%s", ktype, om.GetName(), om.GetNamespace())
+	for k, v := range checks {
+		if !v {
+			log.Printf("[%s] does not meet %s requirements", name, k)
+		}
+
+		values = append(values, v)
+	}
+	return !common.PassesChecks(values)
 }
