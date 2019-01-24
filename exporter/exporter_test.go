@@ -23,7 +23,15 @@ type MetricsTest struct {
 }
 
 func TestPodObservability(t *testing.T) {
+	// Start the exporter service.
+	cfg := config.NewConfig()
 	client := fake.NewSimpleClientset()
+	service := Service{}
+	service.Start(client, cfg)
+
+	// Start the metrics server, since this is the only way to get the value of
+	// the metrics apparently...
+	metrics.Service{}.Start(client, cfg)
 
 	// do whatever here with the fake client
 	pods := []*core.Pod{
@@ -46,15 +54,10 @@ func TestPodObservability(t *testing.T) {
 			},
 		}},
 	}
-	for _, object := range pods {
-		client.Core().Pods(object.Namespace).Create(object)
-	}
 
-	// Start the exporter service.
-	cfg := config.NewConfig()
-	metrics.Service{}.Start(client, cfg)
-	Service{}.Start(client, cfg)
-	time.Sleep(10 * time.Second)
+	for _, object := range pods {
+		service.onObjectChange(*object)
+	}
 
 	// Define our expected metrics.
 	tests := []MetricsTest{
