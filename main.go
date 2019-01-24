@@ -19,7 +19,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// SolskinService ...
+// SolskinService general service interface.
 type SolskinService interface {
 	GenerateEventHandlers() []cache.ResourceEventHandlerFuncs
 	GetConfigurationSlug() string

@@ -16,18 +16,18 @@ var suppressedResourcesMetric = prometheus.NewCounter(prometheus.CounterOpts{
 	Name: "solskin_suppressed_resources",
 })
 
-// Service TODO
+// Service is the base service for the suppressor service.
 type Service struct {
 	Configuration config.Config
 	Client        kubernetes.Interface
 }
 
-// GetConfigurationSlug TODO
+// GetConfigurationSlug returns the slug used for the configuration section.
 func (s Service) GetConfigurationSlug() string {
 	return "suppressor"
 }
 
-// GenerateEventHandlers TODO
+// GenerateEventHandlers returns all event handlers used by this service.
 func (s Service) GenerateEventHandlers() []cache.ResourceEventHandlerFuncs {
 	return []cache.ResourceEventHandlerFuncs{
 		cache.ResourceEventHandlerFuncs{
@@ -38,13 +38,13 @@ func (s Service) GenerateEventHandlers() []cache.ResourceEventHandlerFuncs {
 	}
 }
 
-// Init TODO
+// Init registers prometheus metrics for the suppression service.
 func (s Service) Init() {
 	// Initialize the suppressor metrics.
 	prometheus.MustRegister(suppressedResourcesMetric)
 }
 
-// Start TODO
+// Start will start any other components the service needs.
 func (s Service) Start() {
 	// do nothing
 }
