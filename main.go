@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/kubernetes/client-go/informers"
+	"github.com/micro/go-config/source/env"
 	"k8s.io/client-go/tools/cache"
 	"log"
 	"os"
@@ -29,6 +30,7 @@ type SolskinService interface {
 
 func main() {
 	cfg := config.NewConfig()
+	config.Load(env.NewSource(env.WithStrippedPrefix("SOLSKIN")))
 
 	kubecfg := fmt.Sprintf("%s/.kube/config", os.Getenv("HOME"))
 
