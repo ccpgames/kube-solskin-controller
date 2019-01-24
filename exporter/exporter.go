@@ -21,18 +21,18 @@ var categories = []string{
 }
 var promMetrics = make(map[string]*prometheus.GaugeVec, len(categories))
 
-// Service TODO
+// Service is the base service for the suppressor service.
 type Service struct {
 	Client        kubernetes.Interface
 	Configuration config.Config
 }
 
-// GetConfigurationSlug TODO
+// GetConfigurationSlug returns the slug used for the configuration section.
 func (s Service) GetConfigurationSlug() string {
 	return "exporter"
 }
 
-// GenerateEventHandlers TODO
+// GenerateEventHandlers returns all event handlers used by this service.
 func (s Service) GenerateEventHandlers() []cache.ResourceEventHandlerFuncs {
 	return []cache.ResourceEventHandlerFuncs{
 		cache.ResourceEventHandlerFuncs{
@@ -43,7 +43,8 @@ func (s Service) GenerateEventHandlers() []cache.ResourceEventHandlerFuncs {
 	}
 }
 
-// Init will initialize and run the metrics service.
+// Init will register the prometheus metrics the exporter is responsible for
+// updating.
 func (s Service) Init() {
 	// Initialize our metrics.
 	for _, category := range categories {
@@ -55,7 +56,7 @@ func (s Service) Init() {
 	}
 }
 
-// Start will initialize and run the metrics service.
+// Start will start any other components the service needs.
 func (s Service) Start() {
 	// do nothing
 }

@@ -16,7 +16,8 @@ import (
 	"time"
 )
 
-// MetricsTest ...
+// MetricsTest represents a single metrics test, the expected value should match
+// the value output from the named metric along the dimensions from labels.
 type MetricsTest struct {
 	Expected float64
 	Name     string
@@ -34,7 +35,7 @@ func TestObservability(t *testing.T) {
 	service.Init()
 
 	// Start the metrics server, since this is the only way to get the value of
-	// the metrics apparently...
+	// the metrics apparently.
 	mservice := metrics.Service{
 		Client:        client,
 		Configuration: cfg,
