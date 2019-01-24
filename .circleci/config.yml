@@ -6,6 +6,7 @@ jobs:
     - image: golang:alpine
     steps:
     - checkout
+    - run: go get ./...
     - run: go test ./...
 
 workflows:
