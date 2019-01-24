@@ -3,7 +3,7 @@ version: 2.1
 jobs:
   test:
     docker:
-    - image: golang:alpine
+    - image: theyorkshiredev/golang-git
     steps:
     - checkout
     - run: go get ./...
