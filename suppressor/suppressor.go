@@ -15,6 +15,20 @@ import (
 	"time"
 )
 
+// Action type is an enumeration of the action the suppressor should take.
+type Action string
+
+const (
+	// ActionNone represents taking no action, no logging nor suppression.
+	ActionNone Action = "none"
+
+	// ActionLog represents only logging resources that do not meet standards.
+	ActionLog Action = "log"
+
+	// ActionSuppress both logs and suppresses subpar resources.
+	ActionSuppress Action = "suppress"
+)
+
 var suppressedResourcesMetric = prometheus.NewCounterVec(
 	prometheus.CounterOpts{
 		Help: "Counter of suppressed kubernetes resources.",
@@ -35,8 +49,8 @@ type Service struct {
 	Client        kubernetes.Interface
 }
 
-// GetConfigurationSlug returns the slug used for the configuration section.
-func (s Service) GetConfigurationSlug() string {
+// GetSlug returns the slug used for the configuration section.
+func (s Service) GetSlug() string {
 	return "suppressor"
 }
 
@@ -64,19 +78,27 @@ func (s Service) Start() {
 // Called when one of the informers detects either a new or updated kubernetes
 // resource, with the object as the input parameter.
 func (s Service) onObjectChange(obj interface{}) {
-	// Determine if the resource is eligible for suppression, if not skip it.
-	if !common.IsEligible(obj, s.Configuration) {
+	action := s.Configuration.Get(s.GetSlug(), "action").String(string(ActionLog))
+
+	// If we are configured to take no action, simply return.
+	if action == string(ActionNone) {
 		return
 	}
 
 	// Get the metadata of the resource.
 	m, ktype := common.GetObjectMeta(obj)
 
+	// Determine if the resource is eligible for suppression, if not skip it.
+	if !common.IsEligible(obj, s.Configuration) {
+		log.Printf("object in namespace [%s], not eligible", m.GetNamespace())
+		return
+	}
+
 	// Grab the unique identifier for the kubernetes resource.
 	uid := string(m.GetUID())
 
 	// Check to see if the resource has already been suppressed.
-	fqname := fmt.Sprintf("%s.%s", m.GetName(), m.GetNamespace())
+	fqname := fmt.Sprintf("%s:%s.%s", ktype, m.GetName(), m.GetNamespace())
 	v, found := c.Get(uid)
 	if found && v.(bool) {
 		return
@@ -85,6 +107,7 @@ func (s Service) onObjectChange(obj interface{}) {
 
 	// If we don't need to suppress to object, simply return.
 	if !s.toSuppress(obj) {
+		log.Printf("[%s] meets standards, will not suppress", fqname)
 		return
 	}
 
@@ -98,8 +121,15 @@ func (s Service) onObjectChange(obj interface{}) {
 	// If the resource is eligible then we have to suppress it, which will depend
 	// on the type of the resource.
 	opts := &meta.DeleteOptions{}
-	log.Printf("[%s:%s] will be suppressed", ktype, fqname)
 	c.Set(uid, true, cache.DefaultExpiration)
+
+	// If our configured action is anything other than suppress, exit early.
+	if action != string(ActionSuppress) {
+		return
+	}
+
+	// Perform the suppression of the resource only if we're configured to do so.
+	log.Printf("[%s] will be suppressed", fqname)
 	switch ktype {
 	case "pod":
 		pod := obj.(*core.Pod)
