@@ -11,8 +11,6 @@ jobs:
     - run: go test ./...
   
   build:
-    branches:
-      only: master
     docker:
     - image: docker
     steps:
@@ -23,6 +21,8 @@ jobs:
     - run: docker push celestialorb/solskin
 
 workflows:
+  version: 2
+
   main:
     jobs:
     - test
@@ -30,3 +30,6 @@ workflows:
         context: celestialorb
         requires:
           - test
+        filters:
+          branches:
+            only: master
