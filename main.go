@@ -97,7 +97,6 @@ func StartServices(
 	informers := []cache.SharedIndexInformer{
 		factory.Apps().V1().DaemonSets().Informer(),
 		factory.Apps().V1().Deployments().Informer(),
-		factory.Apps().V1().ReplicaSets().Informer(),
 		factory.Apps().V1().StatefulSets().Informer(),
 		factory.Batch().V1().Jobs().Informer(),
 		factory.Core().V1().Pods().Informer(),
