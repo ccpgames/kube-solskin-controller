@@ -111,6 +111,11 @@ func (s Service) onObjectChange(obj interface{}) {
 		return
 	}
 
+	// If our configured action is anything other than suppress, exit early.
+	if action != string(ActionSuppress) {
+		return
+	}
+
 	// Increment our metric counter by one.
 	suppressedResourcesMetric.With(map[string]string{
 		"name":          m.GetName(),
@@ -122,11 +127,6 @@ func (s Service) onObjectChange(obj interface{}) {
 	// on the type of the resource.
 	opts := &meta.DeleteOptions{}
 	c.Set(uid, true, cache.DefaultExpiration)
-
-	// If our configured action is anything other than suppress, exit early.
-	if action != string(ActionSuppress) {
-		return
-	}
 
 	// Perform the suppression of the resource only if we're configured to do so.
 	log.Printf("[%s] will be suppressed", fqname)
