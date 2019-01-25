@@ -27,7 +27,7 @@ var suppressedResourcesMetric = prometheus.NewCounterVec(
 	},
 )
 
-var c = cache.New(5*time.Minute, 5*time.Minute)
+var c = cache.New(20*time.Second, 30*time.Second)
 
 // Service is the base service for the suppressor service.
 type Service struct {
