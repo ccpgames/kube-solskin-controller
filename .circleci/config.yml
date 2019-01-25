@@ -7,7 +7,8 @@ jobs:
     working_directory: /go/src/github.com/celestialorb/solskin
     steps:
     - checkout
-    - run: go get -t ./...
+    - run: go get -u github.com/golang/dep/cmd/dep
+    - run: dep ensure
     - run: go test ./...
   
   build:
