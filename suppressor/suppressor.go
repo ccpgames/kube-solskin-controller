@@ -4,19 +4,21 @@ import (
 	"fmt"
 	"github.com/celestialorb/solskin/common"
 	"github.com/micro/go-config"
+	"github.com/patrickmn/go-cache"
 	"github.com/prometheus/client_golang/prometheus"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
+	kcache "k8s.io/client-go/tools/cache"
 	"log"
+	"time"
 )
 
 var suppressedResourcesMetric = prometheus.NewCounterVec(
 	prometheus.CounterOpts{
 		Help: "Counter of suppressed kubernetes resources.",
-	Name: "solskin_suppressed_resources",
+		Name: "solskin_suppressed_resources",
 	},
 	[]string{
 		"name",
@@ -24,6 +26,8 @@ var suppressedResourcesMetric = prometheus.NewCounterVec(
 		"resource_type",
 	},
 )
+
+var c = cache.New(5*time.Minute, 5*time.Minute)
 
 // Service is the base service for the suppressor service.
 type Service struct {
@@ -37,12 +41,11 @@ func (s Service) GetConfigurationSlug() string {
 }
 
 // GenerateEventHandlers returns all event handlers used by this service.
-func (s Service) GenerateEventHandlers() []cache.ResourceEventHandlerFuncs {
-	return []cache.ResourceEventHandlerFuncs{
-		cache.ResourceEventHandlerFuncs{
+func (s Service) GenerateEventHandlers() []kcache.ResourceEventHandlerFuncs {
+	return []kcache.ResourceEventHandlerFuncs{
+		kcache.ResourceEventHandlerFuncs{
 			AddFunc:    func(obj interface{}) { s.onObjectChange(obj) },
 			UpdateFunc: func(_, obj interface{}) { s.onObjectChange(obj) },
-			DeleteFunc: func(obj interface{}) { s.onObjectDelete(obj) },
 		},
 	}
 }
@@ -66,19 +69,37 @@ func (s Service) onObjectChange(obj interface{}) {
 		return
 	}
 
+	// Get the metadata of the resource.
+	m, ktype := common.GetObjectMeta(obj)
+
+	// Grab the unique identifier for the kubernetes resource.
+	uid := string(m.GetUID())
+
+	// Check to see if the resource has already been suppressed.
+	fqname := fmt.Sprintf("%s.%s", m.GetName(), m.GetNamespace())
+	v, found := c.Get(uid)
+	if found && v.(bool) {
+		return
+	}
+	c.Set(uid, false, cache.DefaultExpiration)
+
 	// If we don't need to suppress to object, simply return.
 	if !s.toSuppress(obj) {
 		return
 	}
 
-	// Get the metadata of the resource.
-	m, ktype := common.GetObjectMeta(obj)
+	// Increment our metric counter by one.
+	suppressedResourcesMetric.With(map[string]string{
+		"name":          m.GetName(),
+		"namespace":     m.GetNamespace(),
+		"resource_type": ktype,
+	}).Add(1.0)
 
 	// If the resource is eligible then we have to suppress it, which will depend
 	// on the type of the resource.
 	opts := &meta.DeleteOptions{}
-	name := fmt.Sprintf("%s.%s", m.GetName(), m.GetNamespace())
-	log.Printf("[%s:%s] will be suppressed", ktype, name)
+	log.Printf("[%s:%s] will be suppressed", ktype, fqname)
+	c.Set(uid, true, cache.DefaultExpiration)
 	switch ktype {
 	case "pod":
 		pod := obj.(*core.Pod)
@@ -142,8 +163,10 @@ func toSuppress(obj interface{}, m meta.ObjectMeta, spec core.PodSpec) bool {
 		"limits":        common.HasLimits(spec),
 	}
 
+	uid := string(om.GetUID())
+
 	values := []bool{}
-	name := fmt.Sprintf("%s:%s.%s", ktype, om.GetName(), om.GetNamespace())
+	name := fmt.Sprintf("%s:%s.%s:%s", ktype, om.GetName(), om.GetNamespace(), uid)
 	for k, v := range checks {
 		if !v {
 			log.Printf("[%s] does not meet %s requirements", name, k)
