@@ -68,13 +68,6 @@
   version = "v0.5"
 
 [[projects]]
-  digest = "1:2edd2416f89b4e841df0e4a78802ce14d2bc7ad79eba1a45986e39f0f8cb7d87"
-  name = "github.com/golang/glog"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "44145f04b68cf362d9c4df2182967c2275eaefed"
-
-[[projects]]
   digest = "1:4c0989ca0bcd10799064318923b9bc2db6b4d6338dd75f3f2d86c3511aaaf5cf"
   name = "github.com/golang/protobuf"
   packages = [
@@ -461,8 +454,8 @@
     "storage/v1beta1",
   ]
   pruneopts = "UT"
-  revision = "89a74a8d264df0e993299876a8cde88379b940ee"
-  version = "kubernetes-1.13.0"
+  revision = "67edc246be36579e46a89e29a2f165d47e012109"
+  version = "kubernetes-1.13.2"
 
 [[projects]]
   digest = "1:31a151da1d879486aa0a34e82fbe0554edd81f4117e8594640a9ae90be0d3d0f"
@@ -513,10 +506,10 @@
   ]
   pruneopts = "UT"
   revision = "2b1284ed4c93a43499e781493253e2ac5959c4fd"
-  version = "kubernetes-1.13.0"
+  version = "kubernetes-1.13.2"
 
 [[projects]]
-  digest = "1:134a808fdd6c3a7870d66fef14523536bf0da0cb0bc6a590383683ceb7a0f581"
+  digest = "1:21023ed35ee9bf2425fce1156f69c8a5a273e6ced7f06fad19547b0dcbe4818f"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -687,8 +680,8 @@
     "util/retry",
   ]
   pruneopts = "UT"
-  revision = "c8c30ced287c77aba10aa8437fa85e6cecd52ffb"
-  version = "kubernetes-1.13.0-alpha.2"
+  revision = "6bf63545bd0257ed9e701ad95307ffa51b4407c0"
+  version = "kubernetes-1.13.2"
 
 [[projects]]
   digest = "1:e2999bf1bb6eddc2a6aa03fe5e6629120a53088926520ca3b4765f77d7ff7eab"
