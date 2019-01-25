@@ -24,7 +24,7 @@ import (
 // SolskinService general service interface.
 type SolskinService interface {
 	GenerateEventHandlers() []cache.ResourceEventHandlerFuncs
-	GetConfigurationSlug() string
+	GetSlug() string
 	Init()
 	Start()
 }

@@ -27,8 +27,8 @@ type Service struct {
 	Configuration config.Config
 }
 
-// GetConfigurationSlug returns the slug used for the configuration section.
-func (s Service) GetConfigurationSlug() string {
+// GetSlug returns the slug used for the configuration section.
+func (s Service) GetSlug() string {
 	return "exporter"
 }
 

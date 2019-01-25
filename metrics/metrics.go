@@ -16,8 +16,8 @@ type Service struct {
 	Configuration config.Config
 }
 
-// GetConfigurationSlug returns the slug used for the configuration section.
-func (s Service) GetConfigurationSlug() string {
+// GetSlug returns the slug used for the configuration section.
+func (s Service) GetSlug() string {
 	return "metrics"
 }
 
@@ -34,7 +34,7 @@ func (s Service) Init() {
 // Start will run the metrics http service.
 func (s Service) Start() {
 	// Retrieve the configuration slug for this service.
-	cslug := s.GetConfigurationSlug()
+	cslug := s.GetSlug()
 
 	// Get port from configuration.
 	port := s.Configuration.Get(cslug, "port").Int(8080)
