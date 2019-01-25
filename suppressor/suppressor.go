@@ -13,10 +13,17 @@ import (
 	"log"
 )
 
-var suppressedResourcesMetric = prometheus.NewCounter(prometheus.CounterOpts{
-	Help: "TODO",
+var suppressedResourcesMetric = prometheus.NewCounterVec(
+	prometheus.CounterOpts{
+		Help: "Counter of suppressed kubernetes resources.",
 	Name: "solskin_suppressed_resources",
-})
+	},
+	[]string{
+		"name",
+		"namespace",
+		"resource_type",
+	},
+)
 
 // Service is the base service for the suppressor service.
 type Service struct {
@@ -90,32 +97,6 @@ func (s Service) onObjectChange(obj interface{}) {
 
 		// To suppress a daemonset, we simply delete it.
 		s.Client.Apps().DaemonSets(m.Namespace).Delete(ds.GetName(), opts)
-	}
-}
-
-// Called when one of the informers detects either a new or updated kubernetes
-// resource, with the object as the input parameter.
-func (s Service) onObjectDelete(obj interface{}) {
-	// Determine if the resource is eligible for suppression, if not skip it.
-	if !common.IsEligible(obj, s.Configuration) {
-		return
-	}
-
-	// Determine if the resource should be unsuppressed.
-	if s.toSuppress(obj) {
-		return
-	}
-
-	// Get the metadata of the resource.
-	m, ktype := common.GetObjectMeta(obj)
-
-	// If the resource is eligible then we have to suppress it, which will depend
-	// on the type of the resource.
-	switch ktype {
-	case "deployment":
-		dpl := obj.(*apps.Deployment)
-		dpl.Spec.Paused = false
-		s.Client.Apps().Deployments(m.Namespace).Update(dpl)
 	}
 }
 
