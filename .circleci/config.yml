@@ -37,7 +37,7 @@ jobs:
     steps:
     - checkout
     - docker-deploy:
-        tag: ${CIRCLE_TAG}
+        tag: stable
 
 workflows:
   version: 2
@@ -51,13 +51,11 @@ workflows:
           - test
         filters:
           branches:
-            only: master
+            only: /^release-?.*$/
     - deploy:
         context: celestialorb
         requires:
           - test
         filters:
           branches:
-            ignore: /.*/
-          tags:
-            only: /.*/
+            only: master
