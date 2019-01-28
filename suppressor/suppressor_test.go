@@ -58,6 +58,10 @@ func TestSuppressionDecision(t *testing.T) {
 								},
 							},
 							Resources: core.ResourceRequirements{
+								Requests: core.ResourceList{
+									core.ResourceCPU:    *resource.NewScaledQuantity(1, resource.Mega),
+									core.ResourceMemory: *resource.NewScaledQuantity(1, resource.Mega),
+								},
 								Limits: core.ResourceList{
 									core.ResourceCPU:    *resource.NewScaledQuantity(1, resource.Mega),
 									core.ResourceMemory: *resource.NewScaledQuantity(1, resource.Mega),
