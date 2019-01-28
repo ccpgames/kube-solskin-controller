@@ -190,6 +190,7 @@ func toSuppress(obj interface{}, m meta.ObjectMeta, spec core.PodSpec) bool {
 		"observability": common.HasObservability(m),
 		"liveness":      common.HasLiveness(spec),
 		"readiness":     common.HasReadiness(spec),
+		"requests":        common.HasRequests(spec),
 		"limits":        common.HasLimits(spec),
 	}
 

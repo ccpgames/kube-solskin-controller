@@ -150,14 +150,29 @@ func HasLimits(spec core.PodSpec) bool {
 
 	for _, container := range spec.Containers {
 		r := container.Resources.Limits
-		if !hasAllLimits(r) {
+		if !hasAllResources(r) {
 			return false
 		}
 	}
 	return true
 }
 
-func hasAllLimits(r core.ResourceList) bool {
+// HasRequests determines if the spec has a proper resource requests.
+func HasRequests(spec core.PodSpec) bool {
+	if len(spec.Containers) <= 0 {
+		return false
+	}
+
+	for _, container := range spec.Containers {
+		r := container.Resources.Requests
+		if !hasAllResources(r) {
+			return false
+		}
+	}
+	return true
+}
+
+func hasAllResources(r core.ResourceList) bool {
 	keys := []core.ResourceName{
 		core.ResourceCPU,
 		core.ResourceMemory,

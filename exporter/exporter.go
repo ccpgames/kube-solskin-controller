@@ -17,6 +17,7 @@ var categories = []string{
 	"observability",
 	"liveness",
 	"readiness",
+	"requests",
 	"limits",
 }
 var promMetrics = make(map[string]*prometheus.GaugeVec, len(categories))
@@ -95,6 +96,8 @@ func (s Service) onObjectChange(obj interface{}) {
 			value = common.HasLiveness(*spec)
 		case "readiness":
 			value = common.HasReadiness(*spec)
+		case "requests":
+			value = common.HasRequests(*spec)
 		case "limits":
 			value = common.HasLimits(*spec)
 		}

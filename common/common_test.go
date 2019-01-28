@@ -410,6 +410,7 @@ func TestHasReadiness(t *testing.T) {
 		assert.Exactly(t, test.Expected, actual)
 	}
 }
+
 func TestHasLimits(t *testing.T) {
 	tests := []SpecTest{
 		// Basic test with no resource limits.
@@ -478,6 +479,78 @@ func TestHasLimits(t *testing.T) {
 
 	for _, test := range tests {
 		actual := HasLimits(test.Spec)
+		assert.Exactly(t, test.Expected, actual)
+	}
+}
+
+func TestHasRequests(t *testing.T) {
+	tests := []SpecTest{
+		// Basic test with no resource requests.
+		SpecTest{
+			Expected: false,
+			Spec: core.PodSpec{
+				Containers: []core.Container{
+					core.Container{
+						Resources: core.ResourceRequirements{
+							Requests: core.ResourceList{},
+						},
+					},
+				},
+			},
+		},
+
+		// Basic test with only CPU resource requests.
+		SpecTest{
+			Expected: false,
+			Spec: core.PodSpec{
+				Containers: []core.Container{
+					core.Container{
+						Resources: core.ResourceRequirements{
+							Requests: core.ResourceList{
+								core.ResourceCPU: *resource.NewScaledQuantity(1, resource.Mega),
+							},
+						},
+					},
+				},
+			},
+		},
+
+		// Basic test with only memory resource requests.
+		SpecTest{
+			Expected: false,
+			Spec: core.PodSpec{
+				Containers: []core.Container{
+					core.Container{
+						Resources: core.ResourceRequirements{
+							Requests: core.ResourceList{
+								core.ResourceMemory: *resource.NewScaledQuantity(1, resource.Mega),
+							},
+						},
+					},
+				},
+			},
+		},
+
+		// Basic test with both resource requests.
+		SpecTest{
+			Expected: true,
+			Spec: core.PodSpec{
+				Containers: []core.Container{
+					core.Container{
+						Resources: core.ResourceRequirements{
+							Requests: core.ResourceList{
+								core.ResourceCPU:    *resource.NewScaledQuantity(1, resource.Mega),
+								core.ResourceMemory: *resource.NewScaledQuantity(1, resource.Mega),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		actual := HasRequests(test.Spec)
 		assert.Exactly(t, test.Expected, actual)
 	}
 }
