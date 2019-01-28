@@ -1,5 +1,17 @@
 version: 2.1
 
+commands:
+  docker-deploy:
+    description: "TODO"
+    parameters:
+      tag:
+        type: string
+    steps:
+    - setup_remote_docker
+    - run: docker build -t celestialorb/solskin:<< parameters.tag >> -f Dockerfile .
+    - run: docker login -u ${DOCKER_USERNAME} -p ${DOCKER_PASSWORD}
+    - run: docker push celestialorb/solskin:<< parameters.tag >>
+
 jobs:
   test:
     docker:
@@ -15,11 +27,17 @@ jobs:
     docker:
     - image: docker
     steps:
-    - setup_remote_docker
     - checkout
-    - run: docker build -t celestialorb/solskin -f Dockerfile .
-    - run: docker login -u ${DOCKER_USERNAME} -p ${DOCKER_PASSWORD}
-    - run: docker push celestialorb/solskin
+    - docker-deploy:
+        tag: latest
+  
+  deploy:
+    docker:
+    - image: docker
+    steps:
+    - checkout
+    - docker-deploy:
+        tag: ${CIRCLE_TAG}
 
 workflows:
   version: 2
@@ -34,3 +52,10 @@ workflows:
         filters:
           branches:
             only: master
+    - deploy:
+        context: celestialorb
+        requires:
+          - test
+        filters:
+          tags:
+            only: .*
