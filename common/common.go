@@ -64,6 +64,7 @@ func IsEligible(obj interface{}, cfg config.Config) bool {
 		// Test to see if the resource is eligible based on age.
 		isOldEnough := IsEligibleByAge(obj, cfg)
 		if !isOldEnough {
+			log.Printf("[%s] resource isn't old enough", getFullLabel(m, ktype))
 			return false
 		}
 	}
@@ -109,6 +110,8 @@ func IsEligibleByAge(obj interface{}, cfg config.Config) bool {
 
 	// Treat negative durations as "off".
 	if duration < 0 {
+		log.Printf("encountered negative duration (%s)", limit)
+		log.Printf("skipping age check")
 		return true
 	}
 
