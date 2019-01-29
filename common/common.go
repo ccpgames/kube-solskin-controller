@@ -267,3 +267,7 @@ func BooleanToFloat64(value bool) float64 {
 	}
 	return 0.0
 }
+
+func getFullLabel(m meta.ObjectMeta, k string) string {
+	return fmt.Sprintf("%s:%s.%s", k, m.GetName(), m.GetNamespace())
+}
