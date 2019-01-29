@@ -56,14 +56,17 @@ func GetPodSpec(obj interface{}) *core.PodSpec {
 // IsEligible determines whether or not the object is eligible for monitoring
 // and suppression based on the given configuration.
 func IsEligible(obj interface{}, cfg config.Config) bool {
-	// Test to see if the resource is eligible based on age.
-	isOldEnough := IsEligibleByAge(obj, cfg)
-	if !isOldEnough {
-		return false
-	}
-
 	// Grab the object's metadata.
-	m, _ := GetObjectMeta(obj)
+	m, ktype := GetObjectMeta(obj)
+
+	// If we have a pod, skip the age check.
+	if ktype != "pod" {
+		// Test to see if the resource is eligible based on age.
+		isOldEnough := IsEligibleByAge(obj, cfg)
+		if !isOldEnough {
+			return false
+		}
+	}
 
 	// Extract the pattern from the service configuration.
 	p := cfg.Get("eligibility", "exclude_namespace").String("^kube-")
