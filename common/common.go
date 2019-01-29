@@ -70,7 +70,7 @@ func IsEligible(obj interface{}, cfg config.Config) bool {
 	}
 
 	// Extract the pattern from the service configuration.
-	p := cfg.Get("eligibility", "exclude_namespace").String("^kube-")
+	p := cfg.Get("eligibility", "exclude", "namespace").String("^kube-")
 
 	// Run the regexp against the namespace of the resource.
 	match, err := regexp.MatchString(p, m.Namespace)
