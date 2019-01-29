@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // GetServiceAnnotation retrieves the annotations made by this service.
@@ -55,6 +56,12 @@ func GetPodSpec(obj interface{}) *core.PodSpec {
 // IsEligible determines whether or not the object is eligible for monitoring
 // and suppression based on the given configuration.
 func IsEligible(obj interface{}, cfg config.Config) bool {
+	// Test to see if the resource is eligible based on age.
+	isOldEnough := IsEligibleByAge(obj, cfg)
+	if !isOldEnough {
+		return false
+	}
+
 	// Grab the object's metadata.
 	m, _ := GetObjectMeta(obj)
 
@@ -69,6 +76,44 @@ func IsEligible(obj interface{}, cfg config.Config) bool {
 
 	// If we have a match, then the resource isn't eligible.
 	return !match
+}
+
+// IsEligibleByAge determines whether or not the resource is eligible for monitoring
+// and supression based on the age of the resource.
+func IsEligibleByAge(obj interface{}, cfg config.Config) bool {
+	// Special case: we don't want to handle pods based on age, so skip over them if
+	// that's the resource we're given.
+	m, ktype := GetObjectMeta(obj)
+	if ktype == "pod" {
+		return false
+	}
+
+	// Get our age limit, defaulting to "off" (no check, all resources are eligible).
+	limit := cfg.Get("eligibility", "age", "limit").String("off")
+
+	// If limit is set to "off", don't bother checking.
+	if limit == "off" {
+		return true
+	}
+
+	// Parse our limit.
+	duration, err := time.ParseDuration(limit)
+	if err != nil {
+		log.Printf("time.ParseDuration could not parse: %s", limit)
+		log.Printf("error: %s", err)
+		return false
+	}
+
+	// Treat negative durations as "off".
+	if duration < 0 {
+		return true
+	}
+
+	// Grab the age of our resource.
+	age := time.Now().Sub(m.CreationTimestamp.Time)
+
+	// Return true if the resource is older than the given duration.
+	return (age >= duration)
 }
 
 // PassesChecks TODO

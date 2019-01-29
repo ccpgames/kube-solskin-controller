@@ -2,13 +2,16 @@ package common
 
 import (
 	config "github.com/micro/go-config"
+	"github.com/micro/go-config/source/env"
 	"github.com/stretchr/testify/assert"
 	apps "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"os"
 	"testing"
+	"time"
 )
 
 type ObjectMetaTest struct {
@@ -52,6 +55,71 @@ func TestEligibility(t *testing.T) {
 
 	for _, test := range tests {
 		actual := IsEligible(test.Resource, test.Configuration)
+		assert.Exactly(t, actual, test.Expected)
+	}
+}
+
+func TestEligibilityByAge(t *testing.T) {
+	type Test struct {
+		Expected      bool
+		Resource      interface{}
+		Configuration config.Config
+	}
+
+	os.Setenv("SOLSKIN_ELIGIBILITY_AGE_LIMIT", "24h")
+	cfg := config.NewConfig()
+	cfg.Load(env.NewSource(env.WithStrippedPrefix("SOLSKIN")))
+
+	young := meta.Time{Time: time.Now()}
+	old := meta.Time{Time: young.Time.Add(-10 * 24 * time.Hour)}
+
+	// Define our tests.
+	tests := []Test{
+		// Young pod
+		Test{
+			Expected: false,
+			Resource: core.Pod{
+				ObjectMeta: meta.ObjectMeta{
+					CreationTimestamp: young,
+				},
+			},
+			Configuration: cfg,
+		},
+		// Old pod
+		Test{
+			Expected: false,
+			Resource: core.Pod{
+				ObjectMeta: meta.ObjectMeta{
+					CreationTimestamp: old,
+				},
+			},
+			Configuration: cfg,
+		},
+
+		// Young deployment
+		Test{
+			Expected: false,
+			Resource: apps.Deployment{
+				ObjectMeta: meta.ObjectMeta{
+					CreationTimestamp: young,
+				},
+			},
+			Configuration: cfg,
+		},
+		// Old deployment
+		Test{
+			Expected: true,
+			Resource: apps.Deployment{
+				ObjectMeta: meta.ObjectMeta{
+					CreationTimestamp: old,
+				},
+			},
+			Configuration: cfg,
+		},
+	}
+
+	for _, test := range tests {
+		actual := IsEligibleByAge(test.Resource, test.Configuration)
 		assert.Exactly(t, actual, test.Expected)
 	}
 }
