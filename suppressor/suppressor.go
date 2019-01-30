@@ -90,7 +90,7 @@ func (s Service) onObjectChange(obj interface{}) {
 
 	// Determine if the resource is eligible for suppression, if not skip it.
 	if !common.IsEligible(obj, s.Configuration) {
-		log.Printf("object in namespace [%s], not eligible", m.GetNamespace())
+		log.Printf("[%s] object in namespace [%s], not eligible", common.GetFullLabel(obj), m.GetNamespace())
 		return
 	}
 

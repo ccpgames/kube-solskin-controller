@@ -45,7 +45,7 @@ func IsEligible(obj interface{}, cfg config.Config) bool {
 		// Test to see if the resource is eligible based on age.
 		isOldEnough := IsEligibleByAge(obj, cfg)
 		if !isOldEnough {
-			log.Printf("[%s] resource isn't old enough", getFullLabel(m, ktype))
+			log.Printf("[%s] resource isn't old enough", GetFullLabel(obj))
 			return false
 		}
 	}
@@ -249,6 +249,8 @@ func BooleanToFloat64(value bool) float64 {
 	return 0.0
 }
 
-func getFullLabel(m meta.ObjectMeta, k string) string {
-	return fmt.Sprintf("%s:%s.%s", k, m.GetName(), m.GetNamespace())
+// GetFullLabel will return a formatted string fully representing an object.
+func GetFullLabel(obj interface{}) string {
+	m, ktype := GetObjectMeta(obj)
+	return fmt.Sprintf("%s:%s.%s", ktype, m.GetName(), m.GetNamespace())
 }
