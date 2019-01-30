@@ -184,8 +184,6 @@ func (s Service) toSuppressDaemonSet(ds *apps.DaemonSet) bool {
 
 // Helper function to determine if a resource meets suppression.
 func toSuppress(obj interface{}, m meta.ObjectMeta, spec core.PodSpec) bool {
-	om, ktype := common.GetObjectMeta(obj)
-
 	checks := map[string]bool{
 		"observability": common.HasObservability(m),
 		"liveness":      common.HasLiveness(spec),
@@ -194,13 +192,10 @@ func toSuppress(obj interface{}, m meta.ObjectMeta, spec core.PodSpec) bool {
 		"limits":        common.HasLimits(spec),
 	}
 
-	uid := string(om.GetUID())
-
 	values := []bool{}
-	name := fmt.Sprintf("%s:%s.%s:%s", ktype, om.GetName(), om.GetNamespace(), uid)
 	for k, v := range checks {
 		if !v {
-			log.Printf("[%s] does not meet %s requirements", name, k)
+			log.Printf("[%s] does not meet %s requirements", common.GetFullLabel(obj), k)
 		}
 
 		values = append(values, v)
