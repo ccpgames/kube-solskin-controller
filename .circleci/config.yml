@@ -8,9 +8,9 @@ commands:
         type: string
     steps:
     - setup_remote_docker
-    - run: docker build -t ccpgames/solskin:<< parameters.tag >> -f Dockerfile .
+    - run: docker build -t ccpgames/kube-solskin-controller:<< parameters.tag >> -f Dockerfile .
     - run: docker login -u ${DOCKER_USERNAME} -p ${DOCKER_PASSWORD}
-    - run: docker push ccpgames/solskin:<< parameters.tag >>
+    - run: docker push ccpgames/kube-solskin-controller:<< parameters.tag >>
 
 jobs:
   test:
