@@ -3,7 +3,7 @@ FROM golang:alpine as builder
 RUN apk add --update git
 RUN go get -u github.com/golang/dep/cmd/dep
 
-ARG PROJECT="github.com/celestialorb/solskin"
+ARG PROJECT="github.com/ccpgames/kube-solskin-controller"
 RUN mkdir -p /go/src/${PROJECT}
 WORKDIR /go/src/${PROJECT}
 COPY ./ ./
