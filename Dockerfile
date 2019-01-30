@@ -1,6 +1,6 @@
 FROM golang:alpine AS builder
 
-RUN apk add --update git
+RUN apk add --update --no-cache git
 RUN go get -u github.com/golang/dep/cmd/dep
 
 ARG PROJECT="github.com/ccpgames/kube-solskin-controller"
