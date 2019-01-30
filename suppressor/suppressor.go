@@ -98,7 +98,7 @@ func (s Service) onObjectChange(obj interface{}) {
 	uid := string(m.GetUID())
 
 	// Check to see if the resource has already been suppressed.
-	fqname := fmt.Sprintf("%s:%s.%s", ktype, m.GetName(), m.GetNamespace())
+	fqname := common.GetFullLabel(obj)
 	v, found := c.Get(uid)
 	if found && v.(bool) {
 		return
