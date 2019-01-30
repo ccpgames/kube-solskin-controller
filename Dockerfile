@@ -1,16 +1,16 @@
-FROM golang:alpine AS builder
-
-RUN apk add --update --no-cache git
-RUN go get -u github.com/golang/dep/cmd/dep
+FROM golang AS builder
 
 ARG PROJECT="github.com/ccpgames/kube-solskin-controller"
 RUN mkdir -p /go/src/${PROJECT}
 WORKDIR /go/src/${PROJECT}
-COPY ./ ./
-RUN dep ensure
-RUN GOOS=linux go build -o /app ./
+COPY ./vendor ./vendor
+COPY ./common ./common
+COPY ./exporter ./exporter
+COPY ./metrics ./metrics
+COPY ./suppressor ./suppressor
+COPY ./main.go ./main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /go/bin/app ./main.go
 
-FROM golang:alpine
-RUN apk --no-cache add ca-certificates
-COPY --from=builder /app /app
-ENTRYPOINT ["/app"]
+FROM scratch
+COPY --from=builder /go/bin/app /go/bin/app
+ENTRYPOINT ["/go/bin/app"]
