@@ -1,7 +1,7 @@
 package exporter
 
 import (
-	"github.com/celestialorb/solskin/metrics"
+	"github.com/ccpgames/kube-solskin-controller/metrics"
 	"github.com/kubernetes/client-go/kubernetes/fake"
 	"github.com/micro/go-config"
 	"github.com/prometheus/client_golang/prometheus/promhttp"

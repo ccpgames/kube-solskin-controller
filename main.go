@@ -11,9 +11,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/celestialorb/solskin/exporter"
-	"github.com/celestialorb/solskin/metrics"
-	"github.com/celestialorb/solskin/suppressor"
+	"github.com/ccpgames/kube-solskin-controller/exporter"
+	"github.com/ccpgames/kube-solskin-controller/metrics"
+	"github.com/ccpgames/kube-solskin-controller/suppressor"
 	config "github.com/micro/go-config"
 
 	"k8s.io/client-go/kubernetes"

@@ -10,7 +10,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/celestialorb/solskin/common"
+	"github.com/ccpgames/kube-solskin-controller/common"
 )
 
 var categories = []string{

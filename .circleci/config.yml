@@ -8,15 +8,15 @@ commands:
         type: string
     steps:
     - setup_remote_docker
-    - run: docker build -t celestialorb/solskin:<< parameters.tag >> -f Dockerfile .
+    - run: docker build -t ccpgames/solskin:<< parameters.tag >> -f Dockerfile .
     - run: docker login -u ${DOCKER_USERNAME} -p ${DOCKER_PASSWORD}
-    - run: docker push celestialorb/solskin:<< parameters.tag >>
+    - run: docker push ccpgames/solskin:<< parameters.tag >>
 
 jobs:
   test:
     docker:
     - image: circleci/golang
-    working_directory: /go/src/github.com/celestialorb/solskin
+    working_directory: /go/src/github.com/ccpgames/kube-solskin-controller
     steps:
     - checkout
     - run: go get -u github.com/golang/dep/cmd/dep
@@ -46,14 +46,14 @@ workflows:
     jobs:
     - test
     - build:
-        context: celestialorb
+        context: docker-hub
         requires:
           - test
         filters:
           branches:
             only: /^release-?.*$/
     - deploy:
-        context: celestialorb
+        context: docker-hub
         requires:
           - test
         filters:
