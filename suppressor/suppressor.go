@@ -1,7 +1,6 @@
 package suppressor
 
 import (
-	"fmt"
 	"github.com/ccpgames/kube-solskin-controller/common"
 	"github.com/micro/go-config"
 	"github.com/patrickmn/go-cache"
