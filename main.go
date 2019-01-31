@@ -92,8 +92,17 @@ func StartServices(
 		service.Init()
 	}
 
-	// Create our informers
-	factory := informers.NewSharedInformerFactory(client, 0)
+	// Determine our resync period, defaulting to five minutes.
+	resyncValue := cfg.Get("informers", "resync").String("5m")
+	resync, err := time.ParseDuration(resyncValue)
+	if err != nil {
+		log.Printf("could not parse resync duration, value given: [%s]", resyncValue)
+		log.Println("defaulting to 5 minute resync period")
+		resync = time.Duration(5 * time.Minute)
+	}
+
+	// Create our informers.
+	factory := informers.NewSharedInformerFactory(client, resync)
 	informers := []cache.SharedIndexInformer{
 		factory.Apps().V1().DaemonSets().Informer(),
 		factory.Apps().V1().Deployments().Informer(),
