@@ -27,6 +27,3 @@ Due to the fact that suppression of Kubernetes resources is a **destructive** ac
 
 ## Contributing
 Please feel free to create issues or PRs, or just join the discussion! This repository is a prototype at best and could probably use a good rework, as well as good discussions for more / better checks.
-
-## FAQs
-TODO
