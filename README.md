@@ -1,11 +1,11 @@
-# solskin
+# kube-solskin-controller
 A simple service to log or suppress Kubernetes resources in a cluster that do not meet basic best practices.
 
 ## Documentation
 TODO
 
 ## Best Practices Checks
-There are currently four primary checks that the _solskin_ service will perform on every pod, deployment, and daemon set:
+There are currently four primary checks that the _kube-solskin-controller_ service will perform on every pod, deployment, and daemon set:
   - **Observability**: does the resource export Prometheus metrics of some sort?
   - **Liveness**: does the resource possess a liveness check?
   - **Readiness**: does the resource possess a readiness check?
