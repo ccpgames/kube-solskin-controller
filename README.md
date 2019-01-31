@@ -9,6 +9,8 @@ There are currently four primary checks that the _kube-solskin-controller_ servi
   - **Resource Requests**: does the resource possess resource requests?
   - **Resource Limits**: does the resource possess resource limits?
 
+These checks are extremely simple. At present they only check to see if the resource has any kind of configuration set for these properties. This forces the owner of the resource to at least give some thought to these practices, but doesn't limit them in any way.
+
 ## Configuration
 At the time of this writing, the service is only configurable via environment variables, but uses `micro/go-config` thus adding more sources of configuration will be relatively simple. Below is a table of configurable values for the service.
 
