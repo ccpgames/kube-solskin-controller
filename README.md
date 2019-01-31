@@ -9,6 +9,7 @@ There are currently four primary checks that the _solskin_ service will perform 
   - **Observability**: does the resource export Prometheus metrics of some sort?
   - **Liveness**: does the resource possess a liveness check?
   - **Readiness**: does the resource possess a readiness check?
+  - **Resource Requests**: does the resource possess resource requests?
   - **Resource Limits**: does the resource possess resource limits?
 
 ## Contributing
