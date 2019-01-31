@@ -133,14 +133,5 @@ func StartServices(
 		go informer.Run(s)
 	}
 
-	// Wait until our informer has synced.
-	log.Println("waiting for informers to sync")
-	for _, informer := range informers {
-		for !informer.HasSynced() {
-			time.Sleep(10 * time.Millisecond)
-		}
-	}
-	log.Println("informers have synced")
-
 	return s, nil
 }
