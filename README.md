@@ -14,7 +14,7 @@ At the time of this writing, the service is only configurable via environment va
 
 | Key | Description | Default |
 |-----|-------------|---------|
-| SOLSKIN_METRICS_ENDPOINT | The endpoint that serves the metrics. | /metrics |
+| SOLSKIN_METRICS_ENDPOINT | The endpoint that serves the metrics. | metrics |
 | SOLSKIN_METRICS_PORT | The port that the webserver listen on. | 8080 |
 | SOLSKIN_SUPPRESSOR_ACTION | The action the suppressor service will take when it detects a subpar resource. Available values are `none`, `log`, and `suppress`. | log |
 | SOLSKIN_ELIGIBILITY_EXCLUDE_NAMESPACE | Namespaces matching this regular expression will be exempt from suppression by this service. | ^kube-.*$ |
